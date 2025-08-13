@@ -1,21 +1,22 @@
-###############################
-# Minimal sample: S3 bucket
-###############################
+module "network" {
+	source = "../../modules/network"
 
-# Keep it super simple so CI can apply without extra perms/features
-data "aws_caller_identity" "current" {}
+	name                     = "${var.project_prefix}-${local.env}"
+	cidr_block               = var.vpc_cidr
+	azs                      = local.azs
+	public_subnet_cidrs      = local.public_subnet_cidrs
+	private_app_subnet_cidrs = local.private_app_subnet_cidrs
+	private_db_subnet_cidrs  = local.private_db_subnet_cidrs
 
-locals {
-  # Ensure bucket name is globally unique and DNS-compliant
-  bucket_name = lower(replace("${var.project_prefix}-${var.env_name}-${data.aws_caller_identity.current.account_id}-sample", "_", "-"))
+	enable_nat_gateway  = var.enable_nat_gateway
+	single_nat_gateway  = var.single_nat_gateway
+	enable_flow_logs    = var.enable_flow_logs
+	enable_nacls        = var.enable_nacls
+	tags                = local.tags
 }
 
-resource "aws_s3_bucket" "sample" {
-  bucket = local.bucket_name
-  tags   = local.tags
-}
 
-output "sample_bucket_name" {
-  value       = aws_s3_bucket.sample.bucket
-  description = "Minimal S3 bucket name for GitOps validation"
-}
+output "vpc_id" { value = module.network.vpc_id }
+output "public_subnet_ids" { value = module.network.public_subnet_ids }
+output "private_app_subnet_ids" { value = module.network.private_app_subnet_ids }
+output "private_db_subnet_ids" { value = module.network.private_db_subnet_ids }
