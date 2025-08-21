@@ -16,7 +16,7 @@ resource "aws_internet_gateway" "this" {
 
 # Public subnets
 resource "aws_subnet" "public" {
-  for_each = { for idx, cidr in var.public_subnet_cidrs : idx => { cidr = cidr, az = var.azs[idx] } }
+  for_each                = { for idx, cidr in var.public_subnet_cidrs : idx => { cidr = cidr, az = var.azs[idx] } }
   vpc_id                  = aws_vpc.this.id
   cidr_block              = each.value.cidr
   availability_zone       = each.value.az
@@ -67,7 +67,7 @@ resource "aws_nat_gateway" "this" {
 
 # Private app subnets
 resource "aws_subnet" "private_app" {
-  for_each = { for idx, cidr in var.private_app_subnet_cidrs : idx => { cidr = cidr, az = var.azs[idx] } }
+  for_each          = { for idx, cidr in var.private_app_subnet_cidrs : idx => { cidr = cidr, az = var.azs[idx] } }
   vpc_id            = aws_vpc.this.id
   cidr_block        = each.value.cidr
   availability_zone = each.value.az
@@ -93,7 +93,7 @@ resource "aws_route" "private_app_nat" {
 }
 
 resource "aws_route_table_association" "private_app" {
-  for_each = aws_subnet.private_app
+  for_each  = aws_subnet.private_app
   subnet_id = each.value.id
   route_table_id = aws_route_table.private_app[
     var.single_nat_gateway ? 0 : tonumber(each.key)
@@ -102,7 +102,7 @@ resource "aws_route_table_association" "private_app" {
 
 # Private DB subnets (no internet route by default)
 resource "aws_subnet" "private_db" {
-  for_each = { for idx, cidr in var.private_db_subnet_cidrs : idx => { cidr = cidr, az = var.azs[idx] } }
+  for_each          = { for idx, cidr in var.private_db_subnet_cidrs : idx => { cidr = cidr, az = var.azs[idx] } }
   vpc_id            = aws_vpc.this.id
   cidr_block        = each.value.cidr
   availability_zone = each.value.az
@@ -134,12 +134,12 @@ resource "aws_cloudwatch_log_group" "flow" {
 }
 
 resource "aws_iam_role" "flow" {
-  count              = var.enable_flow_logs ? 1 : 0
-  name               = "${var.name}-vpc-flow-logs"
+  count = var.enable_flow_logs ? 1 : 0
+  name  = "${var.name}-vpc-flow-logs"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
+      Effect    = "Allow"
       Principal = { Service = "vpc-flow-logs.amazonaws.com" }
       Action    = "sts:AssumeRole"
     }]
@@ -177,23 +177,23 @@ resource "aws_network_acl" "public" {
 }
 
 resource "aws_network_acl_rule" "public_ingress" {
-  count        = var.enable_nacls ? 1 : 0
+  count          = var.enable_nacls ? 1 : 0
   network_acl_id = aws_network_acl.public[0].id
-  rule_number  = 100
-  egress       = false
-  protocol     = "-1"
-  rule_action  = "allow"
-  cidr_block   = "0.0.0.0/0"
+  rule_number    = 100
+  egress         = false
+  protocol       = "-1"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
 }
 
 resource "aws_network_acl_rule" "public_egress" {
-  count        = var.enable_nacls ? 1 : 0
+  count          = var.enable_nacls ? 1 : 0
   network_acl_id = aws_network_acl.public[0].id
-  rule_number  = 100
-  egress       = true
-  protocol     = "-1"
-  rule_action  = "allow"
-  cidr_block   = "0.0.0.0/0"
+  rule_number    = 100
+  egress         = true
+  protocol       = "-1"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
 }
 
 resource "aws_network_acl_association" "public" {
