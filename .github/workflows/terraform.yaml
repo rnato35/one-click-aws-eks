@@ -5,12 +5,33 @@ on:
     branches: [ env/dev, env/staging, env/prod ]
     paths:
       - 'infra/envs/**'
+      - 'modules/**'
       - '.github/workflows/terraform.yaml'
   push:
     branches: [ env/dev, env/staging, env/prod ]
     paths:
       - 'infra/envs/**'
+      - 'modules/**'
       - '.github/workflows/terraform.yaml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        required: true
+        default: dev
+      action:
+        description: "Action to perform"
+        type: choice
+        options:
+          - plan
+          - apply
+        required: true
+        default: plan
 
 permissions:
   id-token: write
@@ -25,9 +46,9 @@ env:
 
 jobs:
   plan:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.action == 'plan')
     runs-on: ubuntu-latest
-    environment: ${{ github.base_ref == 'env/dev' && 'dev' || github.base_ref == 'env/staging' && 'staging' || github.base_ref == 'env/prod' && 'prod' || '' }}
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.base_ref == 'env/dev' && 'dev' || github.base_ref == 'env/staging' && 'staging' || github.base_ref == 'env/prod' && 'prod' || '') }}
     defaults:
       run:
         shell: bash
@@ -67,29 +88,38 @@ jobs:
 
       - name: Select Workspace
         run: |
-          case "${GITHUB_BASE_REF}" in
-            env/dev) ENV="dev" ;;
-            env/staging) ENV="staging" ;;
-            env/prod) ENV="prod" ;;
-            *) ENV="dev" ;;
-          esac
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ inputs.environment }}"
+          else
+            case "${GITHUB_BASE_REF}" in
+              env/dev) ENV="dev" ;;
+              env/staging) ENV="staging" ;;
+              env/prod) ENV="prod" ;;
+              *) ENV="dev" ;;
+            esac
+          fi
           terraform workspace list | grep -q " $ENV$" || terraform workspace new "$ENV"
           terraform workspace select "$ENV"
 
       - name: Terraform Plan
         run: |
-          case "${GITHUB_BASE_REF}" in
-            env/dev) VARS=dev/terraform.tfvars ;;
-            env/staging) VARS=staging/terraform.tfvars ;;
-            env/prod) VARS=prod/terraform.tfvars ;;
-            *) VARS=dev/terraform.tfvars ;;
-          esac
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ inputs.environment }}"
+          else
+            case "${GITHUB_BASE_REF}" in
+              env/dev) ENV="dev" ;;
+              env/staging) ENV="staging" ;;
+              env/prod) ENV="prod" ;;
+              *) ENV="dev" ;;
+            esac
+          fi
+          VARS="${ENV}/terraform.tfvars"
           terraform plan -var-file="$VARS" -var "region=${AWS_REGION}" -out=tfplan
 
   apply:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'env/dev' && 'dev' || github.ref_name == 'env/staging' && 'staging' || github.ref_name == 'env/prod' && 'prod' || '' }}
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref_name == 'env/dev' && 'dev' || github.ref_name == 'env/staging' && 'staging' || github.ref_name == 'env/prod' && 'prod' || '') }}
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
@@ -132,16 +162,20 @@ jobs:
 
       - name: Select Workspace
         run: |
-          case "${GITHUB_REF_NAME}" in
-            env/dev) ENV="dev" ;;
-            env/staging) ENV="staging" ;;
-            env/prod) ENV="prod" ;;
-          esac
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ inputs.environment }}"
+          else
+            case "${GITHUB_REF_NAME}" in
+              env/dev) ENV="dev" ;;
+              env/staging) ENV="staging" ;;
+              env/prod) ENV="prod" ;;
+            esac
+          fi
           terraform workspace list | grep -q " $ENV$" || terraform workspace new "$ENV"
           terraform workspace select "$ENV"
 
       - name: Wait for manual approval before production
-        if: github.ref_name == 'env/prod'
+        if: (github.ref_name == 'env/prod') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prod')
         uses: trstringer/manual-approval@v1
         with:
           secret: ${{ secrets.GITHUB_TOKEN }}
@@ -153,11 +187,16 @@ jobs:
 
       - name: Terraform Plan
         run: |
-          case "${GITHUB_REF_NAME}" in
-            env/dev) VARS=dev/terraform.tfvars ;;
-            env/staging) VARS=staging/terraform.tfvars ;;
-            env/prod) VARS=prod/terraform.tfvars ;;
-          esac
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ inputs.environment }}"
+          else
+            case "${GITHUB_REF_NAME}" in
+              env/dev) ENV="dev" ;;
+              env/staging) ENV="staging" ;;
+              env/prod) ENV="prod" ;;
+            esac
+          fi
+          VARS="${ENV}/terraform.tfvars"
           terraform plan -var-file="$VARS" -var "region=${AWS_REGION}" -out=tfplan
 
       - name: Terraform Apply
