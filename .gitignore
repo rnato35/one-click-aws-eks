@@ -48,3 +48,6 @@ id_ed25519
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Claude Code documentation
+CLAUDE.md
