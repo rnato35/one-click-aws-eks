@@ -106,12 +106,106 @@ Complete Terraform solution for AWS three-tier architecture with EKS: VPC networ
 - **infra/envs/**: Root module with environment-specific configurations
 
 ## Quick Start
-1. Configure backend (S3/DynamoDB) in `infra/envs/versions.tf`
-2. Set variables in `infra/envs/dev/terraform.tfvars`
-3. Deploy: `cd infra/envs && terraform init && terraform apply`
+
+### Prerequisites
+1. **AWS Account** with appropriate permissions
+2. **S3 Bucket & DynamoDB Table** for Terraform backend
+3. **GitHub OIDC** configured with AWS IAM role
+4. **GitHub Environments** (dev, staging, prod) with secrets
+
+### Option 1: GitOps Deployment (Recommended)
+
+#### Step 1: Setup GitOps Branches
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd one-click-aws-three-tier-foundation
+
+# Create infrastructure branches  
+git checkout -b env/dev && git push -u origin env/dev
+git checkout main && git checkout -b env/staging && git push -u origin env/staging
+git checkout main && git checkout -b env/prod && git push -u origin env/prod
+
+# Create application branches
+git checkout main && git checkout -b apps/dev && git push -u origin apps/dev
+git checkout main && git checkout -b apps/staging && git push -u origin apps/staging  
+git checkout main && git checkout -b apps/prod && git push -u origin apps/prod
+```
+
+#### Step 2: Deploy Infrastructure
+```bash
+# Make infrastructure changes
+git checkout env/dev
+# Edit infra/envs/dev/terraform.tfvars with your settings
+git add . && git commit -m "Configure dev environment"
+git push origin env/dev
+# GitHub Actions will automatically deploy infrastructure
+```
+
+#### Step 3: Deploy Applications
+```bash
+# Deploy applications
+git checkout apps/dev
+git add . && git commit -m "Deploy observability test app"
+git push origin apps/dev  
+# GitHub Actions will automatically deploy applications
+```
+
+### Option 2: Manual Deployment
+
+#### Infrastructure
+```bash
+cd infra/envs
+terraform init -backend-config="bucket=YOUR_BUCKET" # ... other backend configs
+terraform apply -var-file="dev/terraform.tfvars"
+```
+
+#### Applications  
+```bash
+cd k8s/environments/dev
+terraform init -backend-config="bucket=YOUR_BUCKET" # ... other backend configs
+terraform apply -var="cluster_name=one-click-dev-eks"
+```
+
+### Option 3: Manual Triggers (GitHub UI)
+1. Go to **GitHub Actions** tab
+2. Select **terraform** or **applications** workflow
+3. Click **"Run workflow"** 
+4. Choose environment and action
+5. Deploy with one click! 🚀
 
 ## Post-Deployment
 After successful deployment:
-- Configure `kubectl` with: `aws eks update-kubeconfig --name one-click-dev-eks`
-- Install AWS Load Balancer Controller via Helm
-- Deploy applications to the `apps` namespace
+```bash
+# Configure kubectl
+aws eks update-kubeconfig --name one-click-dev-eks --region us-east-1
+
+# Check cluster status
+kubectl get nodes
+kubectl get pods -A
+
+# Access observability test app
+kubectl port-forward -n apps svc/observability-test 8080:80
+curl http://localhost:8080
+
+# View metrics
+kubectl port-forward -n apps svc/observability-test 9113:9113  
+curl http://localhost:9113/metrics
+```
+
+## GitOps Workflow
+
+### Infrastructure Changes
+1. **Create PR** against `env/dev` → Triggers terraform plan
+2. **Merge PR** → Triggers terraform apply to dev
+3. **Promote** to staging/prod by creating PRs against respective branches
+
+### Application Changes  
+1. **Create PR** against `apps/dev` → Triggers terraform plan
+2. **Merge PR** → Triggers terraform apply to dev
+3. **Promote** to staging/prod by creating PRs against respective branches
+
+### Manual Deployments
+- **Infrastructure**: Use **terraform** workflow with manual trigger
+- **Applications**: Use **applications** workflow with manual trigger
+- **Available for all environments**: dev, staging, prod
