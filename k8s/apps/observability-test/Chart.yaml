@@ -1,0 +1,23 @@
+apiVersion: v2
+name: observability-test
+description: A simple nginx application for testing observability tools
+type: application
+version: 1.0.0
+appVersion: "1.27.3"
+
+keywords:
+  - nginx
+  - observability
+  - monitoring
+  - prometheus
+
+home: https://github.com/your-org/one-click-aws-three-tier-foundation
+sources:
+  - https://github.com/your-org/one-click-aws-three-tier-foundation
+
+maintainers:
+  - name: DevOps Team
+    email: devops@yourcompany.com
+
+annotations:
+  category: Observability

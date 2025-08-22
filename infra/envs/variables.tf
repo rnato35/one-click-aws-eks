@@ -84,7 +84,7 @@ variable "enable_eks" {
 variable "eks_cluster_version" {
   description = "Kubernetes version for the EKS cluster"
   type        = string
-  default     = "1.28"
+  default     = "1.32"
 }
 
 variable "eks_enable_cluster_log_types" {
