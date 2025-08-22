@@ -1,11 +1,24 @@
 # GitOps: Multi-Environment Terraform via GitHub Actions
 
-This repo is configured for GitOps with three environments: dev, staging, prod.
+This repo is configured for GitOps with separate workflows for infrastructure and applications across three environments: dev, staging, prod.
 
-- Branches drive deployments: `env/dev`, `env/staging`, `env/prod`.
-- Pull requests run `terraform plan` for visibility.
-- Merges to env branches run `terraform apply` with workspaces.
-- Authentication uses GitHub OIDC to assume an AWS IAM Role; no long-lived secrets.
+## Branch Strategy
+
+### Infrastructure Deployment
+- **Branches**: `env/dev`, `env/staging`, `env/prod`
+- **Triggers**: Changes to `infra/envs/**`, `modules/**`
+- **Workflow**: `.github/workflows/terraform.yaml`
+
+### Application Deployment  
+- **Branches**: `apps/dev`, `apps/staging`, `apps/prod`
+- **Triggers**: Changes to `k8s/**`
+- **Workflow**: `.github/workflows/applications.yaml`
+
+## Workflow Behavior
+- **Pull requests** run `terraform plan` for visibility
+- **Merges** to environment branches run `terraform apply`
+- **Manual triggers** available for dev environment deployments
+- **Authentication** uses GitHub OIDC to assume AWS IAM Role; no long-lived secrets
 
 ## Required setup
 
@@ -31,8 +44,20 @@ This repo is configured for GitOps with three environments: dev, staging, prod.
 
 ## Workflow
 
-- PRs: run `plan` against the `dev` workspace using `infra/envs/dev/terraform.tfvars` by default.
-- Push to env branches: `apply` runs in the environment matching the branch, selecting the same workspace and tfvars.
+### Infrastructure Workflow (`terraform.yaml`)
+- **PRs to `env/*`**: Run `terraform plan` for infrastructure changes
+- **Push to `env/*`**: Run `terraform apply` for infrastructure deployment
+- **Manual triggers**: Available for all environments (dev, staging, prod)
+
+### Applications Workflow (`applications.yaml`)  
+- **PRs to `apps/*`**: Run `terraform plan` for application changes
+- **Push to `apps/*`**: Run `terraform apply` for application deployment
+- **Manual triggers**: Available for all environments with plan/apply options
+- **Dependencies**: Requires EKS cluster to be deployed first
+
+### State File Organization
+- **Infrastructure**: `global/terraform.tfstate` (with workspaces)
+- **Applications**: `k8s/{environment}/terraform.tfstate` (separate states per environment)
 
 ## Local usage
 

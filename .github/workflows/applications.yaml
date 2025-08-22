@@ -1,0 +1,282 @@
+name: applications
+
+on:
+  pull_request:
+    branches: [ apps/dev, apps/staging, apps/prod ]
+    paths:
+      - 'k8s/**'
+      - '.github/workflows/applications.yaml'
+  push:
+    branches: [ apps/dev, apps/staging, apps/prod ]
+    paths:
+      - 'k8s/**'
+      - '.github/workflows/applications.yaml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy applications"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        required: true
+        default: dev
+      action:
+        description: "Action to perform"
+        type: choice
+        options:
+          - plan
+          - apply
+        required: true
+        default: plan
+
+permissions:
+  id-token: write
+  contents: read
+  issues: write
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_VERSION: "1.6.6"
+  AWS_REGION: ${{ vars.TF_BACKEND_REGION }}
+
+jobs:
+  plan:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.action == 'plan')
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.base_ref == 'apps/dev' && 'dev' || github.base_ref == 'apps/staging' && 'staging' || github.base_ref == 'apps/prod' && 'prod' || '') }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Determine Environment and Cluster
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ inputs.environment }}"
+          else
+            case "${GITHUB_BASE_REF}" in
+              apps/dev) ENV="dev" ;;
+              apps/staging) ENV="staging" ;;
+              apps/prod) ENV="prod" ;;
+              *) ENV="dev" ;;
+            esac
+          fi
+          
+          echo "environment=${ENV}" >> $GITHUB_OUTPUT
+          echo "cluster_name=one-click-${ENV}-eks" >> $GITHUB_OUTPUT
+          echo "working_directory=k8s/environments/${ENV}" >> $GITHUB_OUTPUT
+
+      - name: Terraform Init
+        working-directory: ${{ steps.env.outputs.working_directory }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TF_BACKEND_BUCKET }}" \
+            -backend-config="key=k8s/${{ steps.env.outputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ vars.TF_BACKEND_REGION }}" \
+            -backend-config="encrypt=true" \
+            -backend-config="dynamodb_table=${{ vars.TF_BACKEND_DDB_TABLE }}" \
+            -backend-config="kms_key_id=${{ vars.TF_BACKEND_KMS_KEY_ID }}" \
+            -backend-config="acl=private"
+
+      - name: Terraform Fmt Check
+        working-directory: ${{ steps.env.outputs.working_directory }}
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        working-directory: ${{ steps.env.outputs.working_directory }}
+        run: terraform validate
+
+      - name: Wait for EKS Cluster to be Available
+        run: |
+          echo "Waiting for EKS cluster ${{ steps.env.outputs.cluster_name }} to be available..."
+          aws eks wait cluster-active --name ${{ steps.env.outputs.cluster_name }} --region ${{ env.AWS_REGION }}
+          echo "EKS cluster is active"
+
+      - name: Terraform Plan
+        working-directory: ${{ steps.env.outputs.working_directory }}
+        run: |
+          terraform plan \
+            -var="cluster_name=${{ steps.env.outputs.cluster_name }}" \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="environment=${{ steps.env.outputs.environment }}" \
+            -out=tfplan
+
+      - name: Comment Plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Read terraform plan output if available
+            const planPath = path.join('${{ steps.env.outputs.working_directory }}', 'tfplan');
+            
+            const comment = `## 🚀 Applications Terraform Plan - ${{ steps.env.outputs.environment }}
+            
+            **Environment:** \`${{ steps.env.outputs.environment }}\`
+            **Cluster:** \`${{ steps.env.outputs.cluster_name }}\`
+            **Triggered by:** ${context.actor}
+            
+            Plan completed successfully! ✅
+            
+            <details>
+            <summary>📋 Plan Details</summary>
+            
+            - Working Directory: \`${{ steps.env.outputs.working_directory }}\`
+            - AWS Region: \`${{ env.AWS_REGION }}\`
+            - Terraform Version: \`${{ env.TF_VERSION }}\`
+            
+            </details>`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  apply:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref_name == 'apps/dev' && 'dev' || github.ref_name == 'apps/staging' && 'staging' || github.ref_name == 'apps/prod' && 'prod' || '') }}
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.environment || github.ref_name }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Determine Environment and Cluster
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ inputs.environment }}"
+          else
+            case "${GITHUB_REF_NAME}" in
+              apps/dev) ENV="dev" ;;
+              apps/staging) ENV="staging" ;;
+              apps/prod) ENV="prod" ;;
+            esac
+          fi
+          
+          echo "environment=${ENV}" >> $GITHUB_OUTPUT
+          echo "cluster_name=one-click-${ENV}-eks" >> $GITHUB_OUTPUT
+          echo "working_directory=k8s/environments/${ENV}" >> $GITHUB_OUTPUT
+
+      - name: Terraform Init
+        working-directory: ${{ steps.env.outputs.working_directory }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TF_BACKEND_BUCKET }}" \
+            -backend-config="key=k8s/${{ steps.env.outputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ vars.TF_BACKEND_REGION }}" \
+            -backend-config="encrypt=true" \
+            -backend-config="dynamodb_table=${{ vars.TF_BACKEND_DDB_TABLE }}" \
+            -backend-config="kms_key_id=${{ vars.TF_BACKEND_KMS_KEY_ID }}" \
+            -backend-config="acl=private"
+
+      - name: Terraform Fmt Check
+        working-directory: ${{ steps.env.outputs.working_directory }}
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        working-directory: ${{ steps.env.outputs.working_directory }}
+        run: terraform validate
+
+      - name: Wait for EKS Cluster to be Available
+        run: |
+          echo "Waiting for EKS cluster ${{ steps.env.outputs.cluster_name }} to be available..."
+          aws eks wait cluster-active --name ${{ steps.env.outputs.cluster_name }} --region ${{ env.AWS_REGION }}
+          echo "EKS cluster is active"
+
+      - name: Wait for manual approval before production
+        if: (github.ref_name == 'apps/prod') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prod')
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: rnato35
+          minimum-approvals: 1
+          issue-title: "Manual approval required for production applications deployment"
+          issue-body: "Please approve this production applications deployment to ${{ steps.env.outputs.environment }}."
+          exclude-workflow-initiator-as-approver: false
+
+      - name: Terraform Plan
+        working-directory: ${{ steps.env.outputs.working_directory }}
+        run: |
+          terraform plan \
+            -var="cluster_name=${{ steps.env.outputs.cluster_name }}" \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="environment=${{ steps.env.outputs.environment }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: ${{ steps.env.outputs.working_directory }}
+        run: terraform apply -auto-approve tfplan
+
+      - name: Get Application Status
+        working-directory: ${{ steps.env.outputs.working_directory }}
+        run: |
+          echo "=== Deployment Summary ==="
+          echo "Environment: ${{ steps.env.outputs.environment }}"
+          echo "Cluster: ${{ steps.env.outputs.cluster_name }}"
+          echo "Region: ${{ env.AWS_REGION }}"
+          echo ""
+          
+          # Get kubectl config
+          aws eks update-kubeconfig --name ${{ steps.env.outputs.cluster_name }} --region ${{ env.AWS_REGION }}
+          
+          echo "=== Namespace Status ==="
+          kubectl get namespaces
+          
+          echo "=== Applications in apps namespace ==="
+          kubectl get all -n apps || echo "No resources found in apps namespace yet"
+          
+          echo "=== Helm Releases ==="
+          helm list -A || echo "No Helm releases found"
+
+      - name: Create Deployment Summary
+        if: always()
+        run: |
+          echo "## 🚀 Applications Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ steps.env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Cluster:** ${{ steps.env.outputs.cluster_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "- Configure kubectl: \`aws eks update-kubeconfig --name ${{ steps.env.outputs.cluster_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Check apps: \`kubectl get all -n apps\`" >> $GITHUB_STEP_SUMMARY
+          echo "- View logs: \`kubectl logs -n apps -l app=observability-test\`" >> $GITHUB_STEP_SUMMARY
