@@ -2,12 +2,12 @@ name: applications
 
 on:
   pull_request:
-    branches: [ apps/dev, apps/staging, apps/prod ]
+    branches: [ env/dev, env/staging, env/prod ]
     paths:
       - 'k8s/**'
       - '.github/workflows/applications.yaml'
   push:
-    branches: [ apps/dev, apps/staging, apps/prod ]
+    branches: [ env/dev, env/staging, env/prod ]
     paths:
       - 'k8s/**'
       - '.github/workflows/applications.yaml'
@@ -35,9 +35,9 @@ env:
 
 jobs:
   plan:
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.action == 'plan' && github.ref_name == 'apps/dev')
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.action == 'plan' && github.ref_name == 'env/dev')
     runs-on: ubuntu-latest
-    environment: ${{ github.base_ref == 'apps/dev' && 'dev' || github.base_ref == 'apps/staging' && 'staging' || github.base_ref == 'apps/prod' && 'prod' || 'dev' }}
+    environment: ${{ github.base_ref == 'env/dev' && 'dev' || github.base_ref == 'env/staging' && 'staging' || github.base_ref == 'env/prod' && 'prod' || 'dev' }}
     defaults:
       run:
         shell: bash
@@ -63,9 +63,9 @@ jobs:
             ENV="dev"  # Manual triggers only work for dev
           else
             case "${GITHUB_BASE_REF}" in
-              apps/dev) ENV="dev" ;;
-              apps/staging) ENV="staging" ;;
-              apps/prod) ENV="prod" ;;
+              env/dev) ENV="dev" ;;
+              env/staging) ENV="staging" ;;
+              env/prod) ENV="prod" ;;
               *) ENV="dev" ;;
             esac
           fi
@@ -145,9 +145,9 @@ jobs:
             });
 
   apply:
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply' && github.ref_name == 'apps/dev')
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply' && github.ref_name == 'env/dev')
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'apps/dev' && 'dev' || github.ref_name == 'apps/staging' && 'staging' || github.ref_name == 'apps/prod' && 'prod' || 'dev' }}
+    environment: ${{ github.ref_name == 'env/dev' && 'dev' || github.ref_name == 'env/staging' && 'staging' || github.ref_name == 'env/prod' && 'prod' || 'dev' }}
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
@@ -176,9 +176,9 @@ jobs:
             ENV="dev"  # Manual triggers only work for dev
           else
             case "${GITHUB_REF_NAME}" in
-              apps/dev) ENV="dev" ;;
-              apps/staging) ENV="staging" ;;
-              apps/prod) ENV="prod" ;;
+              env/dev) ENV="dev" ;;
+              env/staging) ENV="staging" ;;
+              env/prod) ENV="prod" ;;
             esac
           fi
           
@@ -213,7 +213,7 @@ jobs:
           echo "EKS cluster is active"
 
       - name: Wait for manual approval before production
-        if: github.ref_name == 'apps/prod'
+        if: github.ref_name == 'env/prod'
         uses: trstringer/manual-approval@v1
         with:
           secret: ${{ secrets.GITHUB_TOKEN }}
