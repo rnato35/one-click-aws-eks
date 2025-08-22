@@ -72,7 +72,7 @@ resource "helm_release" "observability_test" {
 resource "kubernetes_namespace" "apps" {
   metadata {
     name = "apps"
-    
+
     labels = {
       environment = "dev"
       managed-by  = "terraform"
