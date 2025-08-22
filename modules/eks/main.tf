@@ -149,38 +149,30 @@ resource "aws_eks_fargate_profile" "this" {
   tags = var.tags
 }
 
-# EKS Add-ons
-resource "aws_eks_addon" "vpc_cni" {
-  cluster_name                = aws_eks_cluster.this.name
-  addon_name                  = "vpc-cni"
-  resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
+# Note: EKS Add-ons (vpc-cni, coredns, kube-proxy) are automatically created and managed by AWS
+# They are not managed by Terraform to avoid conflicts with existing add-ons
+# The add-ons will be automatically updated when the cluster version is upgraded
 
-  depends_on = [aws_eks_fargate_profile.this]
-
-  tags = var.tags
+# Use data sources to reference the existing add-ons if needed
+data "aws_eks_addon" "vpc_cni" {
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "vpc-cni"
+  
+  depends_on = [aws_eks_cluster.this]
 }
 
-resource "aws_eks_addon" "coredns" {
-  cluster_name                = aws_eks_cluster.this.name
-  addon_name                  = "coredns"
-  resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
-
-  depends_on = [aws_eks_fargate_profile.this]
-
-  tags = var.tags
+data "aws_eks_addon" "coredns" {
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "coredns"
+  
+  depends_on = [aws_eks_cluster.this]
 }
 
-resource "aws_eks_addon" "kube_proxy" {
-  cluster_name                = aws_eks_cluster.this.name
-  addon_name                  = "kube-proxy"
-  resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
-
-  depends_on = [aws_eks_fargate_profile.this]
-
-  tags = var.tags
+data "aws_eks_addon" "kube_proxy" {
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "kube-proxy"
+  
+  depends_on = [aws_eks_cluster.this]
 }
 
 # AWS Load Balancer Controller IAM Role

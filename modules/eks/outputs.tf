@@ -71,8 +71,8 @@ output "aws_load_balancer_controller_role_arn" {
 output "cluster_addons" {
   description = "Map of attribute maps for all EKS cluster addons enabled"
   value = {
-    vpc-cni    = aws_eks_addon.vpc_cni
-    coredns    = aws_eks_addon.coredns
-    kube-proxy = aws_eks_addon.kube_proxy
+    vpc-cni    = data.aws_eks_addon.vpc_cni
+    coredns    = data.aws_eks_addon.coredns
+    kube-proxy = data.aws_eks_addon.kube_proxy
   }
 }
