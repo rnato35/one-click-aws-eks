@@ -3,6 +3,12 @@ variable "region" {
   type        = string
 }
 
+variable "aws_profile" {
+  description = "AWS profile to use for authentication"
+  type        = string
+  default     = "rnato35"
+}
+
 variable "env_name" {
   description = "Short environment name (e.g., dev, staging, prod)"
   type        = string
@@ -84,7 +90,7 @@ variable "enable_eks" {
 variable "eks_cluster_version" {
   description = "Kubernetes version for the EKS cluster"
   type        = string
-  default     = "1.30"
+  default     = "1.32"
 }
 
 variable "eks_enable_cluster_log_types" {

@@ -18,6 +18,9 @@ override.tf.json
 infra/backend.hcl
 infra/backend.generated.hcl
 
+# Deployment commands
+infra/deployment-commands.txt
+
 # Ignore Terraform provider lockfile for bootstrap env
 infra/bootstrap/.terraform.lock.hcl
 

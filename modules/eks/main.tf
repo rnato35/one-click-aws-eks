@@ -154,23 +154,24 @@ resource "aws_eks_fargate_profile" "this" {
 # The add-ons will be automatically updated when the cluster version is upgraded
 
 # Use data sources to reference the existing add-ons if needed
-data "aws_eks_addon" "vpc_cni" {
-  cluster_name = aws_eks_cluster.this.name
-  addon_name   = "vpc-cni"
-  depends_on   = [aws_eks_cluster.this]
-}
+# Commented out due to timing issues - addons not immediately available after cluster creation
+# data "aws_eks_addon" "vpc_cni" {
+#   cluster_name = aws_eks_cluster.this.name
+#   addon_name   = "vpc-cni"
+#   depends_on   = [kubernetes_deployment.fargate_test]
+# }
 
-data "aws_eks_addon" "coredns" {
-  cluster_name = aws_eks_cluster.this.name
-  addon_name   = "coredns"
-  depends_on   = [aws_eks_cluster.this]
-}
+# data "aws_eks_addon" "coredns" {
+#   cluster_name = aws_eks_cluster.this.name
+#   addon_name   = "coredns"
+#   depends_on   = [kubernetes_deployment.fargate_test]
+# }
 
-data "aws_eks_addon" "kube_proxy" {
-  cluster_name = aws_eks_cluster.this.name
-  addon_name   = "kube-proxy"
-  depends_on   = [aws_eks_cluster.this]
-}
+# data "aws_eks_addon" "kube_proxy" {
+#   cluster_name = aws_eks_cluster.this.name
+#   addon_name   = "kube-proxy"
+#   depends_on   = [kubernetes_deployment.fargate_test]
+# }
 
 # AWS Load Balancer Controller IAM Role
 resource "aws_iam_role" "aws_load_balancer_controller" {
@@ -431,3 +432,4 @@ resource "kubernetes_namespace" "apps" {
 
   depends_on = [aws_eks_cluster.this]
 }
+

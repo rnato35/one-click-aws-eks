@@ -68,11 +68,12 @@ output "aws_load_balancer_controller_role_arn" {
   value       = var.enable_aws_load_balancer_controller ? aws_iam_role.aws_load_balancer_controller[0].arn : null
 }
 
-output "cluster_addons" {
-  description = "Map of attribute maps for all EKS cluster addons enabled"
-  value = {
-    vpc-cni    = data.aws_eks_addon.vpc_cni
-    coredns    = data.aws_eks_addon.coredns
-    kube-proxy = data.aws_eks_addon.kube_proxy
-  }
-}
+# Commented out due to timing issues - addons not immediately available after cluster creation
+# output "cluster_addons" {
+#   description = "Map of attribute maps for all EKS cluster addons enabled"
+#   value = {
+#     vpc-cni    = data.aws_eks_addon.vpc_cni
+#     coredns    = data.aws_eks_addon.coredns
+#     kube-proxy = data.aws_eks_addon.kube_proxy
+#   }
+# }
