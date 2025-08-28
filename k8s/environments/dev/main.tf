@@ -55,15 +55,16 @@ resource "helm_release" "observability_test" {
   ]
 
   # Additional values as YAML
-  set {
-    name  = "image.tag"
-    value = "1.27.3-alpine"
-  }
-
-  set {
-    name  = "metrics.enabled"
-    value = "true"
-  }
+  set = [
+    {
+      name  = "image.tag"
+      value = "1.27.3-alpine"
+    },
+    {
+      name  = "metrics.enabled"
+      value = "true"
+    }
+  ]
 
   depends_on = [kubernetes_namespace.apps]
 }
