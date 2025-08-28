@@ -4,9 +4,9 @@ variable "region" {
 }
 
 variable "aws_profile" {
-  description = "AWS profile to use for authentication"
+  description = "AWS profile to use for authentication (leave empty for GitHub Actions)"
   type        = string
-  default     = "rnato35"
+  default     = ""
 }
 
 variable "env_name" {
