@@ -114,7 +114,7 @@ jobs:
             esac
           fi
           VARS="${ENV}/terraform.tfvars"
-          terraform plan -var-file="$VARS" -var "region=${AWS_REGION}" -out=tfplan
+          terraform plan -var-file="$VARS" -var "region=${AWS_REGION}" -var "aws_profile=" -out=tfplan
 
   apply:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
@@ -197,7 +197,7 @@ jobs:
             esac
           fi
           VARS="${ENV}/terraform.tfvars"
-          terraform plan -var-file="$VARS" -var "region=${AWS_REGION}" -out=tfplan
+          terraform plan -var-file="$VARS" -var "region=${AWS_REGION}" -var "aws_profile=" -out=tfplan
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
