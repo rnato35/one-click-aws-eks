@@ -101,4 +101,4 @@ jobs:
             staging) VARS=staging/terraform.tfvars ;;
             prod) VARS=prod/terraform.tfvars ;;
           esac
-          terraform destroy -auto-approve -var-file="$VARS" -var "region=${AWS_REGION}"
+          terraform destroy -auto-approve -var-file="$VARS" -var "region=${AWS_REGION}" -var "aws_profile="

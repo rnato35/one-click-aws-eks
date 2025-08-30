@@ -64,6 +64,30 @@ variable "enable_aws_load_balancer_controller" {
   default     = true
 }
 
+variable "vpc_cni_addon_version" {
+  description = "Version of the VPC CNI addon"
+  type        = string
+  default     = null
+}
+
+variable "coredns_addon_version" {
+  description = "Version of the CoreDNS addon"
+  type        = string
+  default     = null
+}
+
+variable "kube_proxy_addon_version" {
+  description = "Version of the kube-proxy addon"
+  type        = string
+  default     = null
+}
+
+variable "enable_irsa_for_vpc_cni" {
+  description = "Enable IRSA (IAM Roles for Service Accounts) for VPC CNI"
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

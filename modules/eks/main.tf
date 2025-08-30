@@ -400,12 +400,88 @@ resource "aws_iam_openid_connect_provider" "eks" {
   tags = var.tags
 }
 
-# Kubernetes namespace for apps
-resource "kubernetes_namespace" "apps" {
-  metadata {
-    name = "apps"
-  }
+# EKS Addons
+resource "aws_eks_addon" "vpc_cni" {
+  cluster_name                 = aws_eks_cluster.this.name
+  addon_name                   = "vpc-cni"
+  addon_version                = var.vpc_cni_addon_version
+  resolve_conflicts_on_create  = "OVERWRITE"
+  resolve_conflicts_on_update  = "OVERWRITE"
+  service_account_role_arn     = var.enable_irsa_for_vpc_cni ? aws_iam_role.vpc_cni[0].arn : null
 
-  depends_on = [aws_eks_cluster.this]
+  depends_on = [
+    aws_eks_fargate_profile.this
+  ]
+
+  tags = var.tags
 }
+
+resource "aws_eks_addon" "coredns" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "coredns"
+  addon_version               = var.coredns_addon_version
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  configuration_values = jsonencode({
+    computeType = "Fargate"
+    # Remove the default eks.amazonaws.com/compute-type: ec2 node selector
+    nodeSelector = {}
+    tolerations = []
+  })
+
+  depends_on = [
+    aws_eks_fargate_profile.this
+  ]
+
+  tags = var.tags
+}
+
+resource "aws_eks_addon" "kube_proxy" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "kube-proxy"
+  addon_version               = var.kube_proxy_addon_version
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [
+    aws_eks_fargate_profile.this
+  ]
+
+  tags = var.tags
+}
+
+# VPC CNI IRSA Role (optional but recommended for production)
+resource "aws_iam_role" "vpc_cni" {
+  count = var.enable_irsa_for_vpc_cni ? 1 : 0
+  name  = "${var.name}-vpc-cni-irsa"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.eks.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:sub" = "system:serviceaccount:kube-system:aws-node"
+            "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:aud" = "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "vpc_cni" {
+  count      = var.enable_irsa_for_vpc_cni ? 1 : 0
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.vpc_cni[0].name
+}
+
 

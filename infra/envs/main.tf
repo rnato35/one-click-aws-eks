@@ -29,6 +29,11 @@ module "eks" {
   log_retention_in_days               = var.eks_log_retention_in_days
   fargate_profiles                    = var.eks_fargate_profiles
   enable_aws_load_balancer_controller = var.eks_enable_aws_load_balancer_controller
+  
+  vpc_cni_addon_version    = var.eks_vpc_cni_addon_version
+  coredns_addon_version    = var.eks_coredns_addon_version
+  kube_proxy_addon_version = var.eks_kube_proxy_addon_version
+  enable_irsa_for_vpc_cni  = var.eks_enable_irsa_for_vpc_cni
 
   tags = local.tags
 }
@@ -74,4 +79,14 @@ output "eks_oidc_provider_arn" {
 output "eks_aws_load_balancer_controller_role_arn" {
   description = "ARN of the AWS Load Balancer Controller IAM role"
   value       = var.enable_eks ? module.eks[0].aws_load_balancer_controller_role_arn : null
+}
+
+output "eks_cluster_addons" {
+  description = "EKS cluster addons information"
+  value       = var.enable_eks ? module.eks[0].cluster_addons : null
+}
+
+output "eks_fargate_profile_arns" {
+  description = "Amazon Resource Name (ARN) of the EKS Fargate Profiles"
+  value       = var.enable_eks ? module.eks[0].fargate_profile_arns : null
 }
