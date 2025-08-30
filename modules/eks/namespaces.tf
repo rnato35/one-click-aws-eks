@@ -41,9 +41,11 @@ resource "kubernetes_namespace_v1" "managed_namespaces" {
 # Namespace-specific RoleBindings
 # ===================================
 
-# Bind developers to specific namespaces
-resource "kubernetes_role_binding_v1" "developers_namespace_access" {
-  for_each = var.enable_rbac ? {
+# Bind developers to specific namespaces with environment-aware permissions
+# Dev environment: developers get write access when developer_access contains "write"
+# Staging/Prod environment: developers get read-only access when developer_access contains "read"
+resource "kubernetes_role_binding_v1" "developers_namespace_access_write" {
+  for_each = var.enable_rbac && var.environment == "dev" ? {
     for ns_name, ns_config in var.managed_namespaces : ns_name => ns_config
     if contains(ns_config.developer_access, "write")
   } : {}
@@ -54,7 +56,7 @@ resource "kubernetes_role_binding_v1" "developers_namespace_access" {
   ]
 
   metadata {
-    name      = "developers-access"
+    name      = "developers-write-access"
     namespace = each.key
   }
 
@@ -62,6 +64,35 @@ resource "kubernetes_role_binding_v1" "developers_namespace_access" {
     api_group = "rbac.authorization.k8s.io"
     kind      = "ClusterRole"
     name      = "eks:developers"
+  }
+
+  subject {
+    kind = "Group"
+    name = "eks:developers"
+  }
+}
+
+# Bind developers to read-only access in staging/prod environments
+resource "kubernetes_role_binding_v1" "developers_namespace_access_read" {
+  for_each = var.enable_rbac && (var.environment == "staging" || var.environment == "prod") ? {
+    for ns_name, ns_config in var.managed_namespaces : ns_name => ns_config
+    if contains(ns_config.developer_access, "read")
+  } : {}
+  
+  depends_on = [
+    kubernetes_namespace_v1.managed_namespaces,
+    kubernetes_cluster_role_v1.viewers
+  ]
+
+  metadata {
+    name      = "developers-read-access"
+    namespace = each.key
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = "eks:viewers"
   }
 
   subject {

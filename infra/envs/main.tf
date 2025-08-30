@@ -20,6 +20,7 @@ module "eks" {
   source = "../../modules/eks"
 
   name               = "${var.project_prefix}-${local.env}-eks"
+  environment        = var.env_name
   vpc_id             = module.network.vpc_id
   private_subnet_ids = module.network.private_app_subnet_ids
   public_subnet_ids  = module.network.public_subnet_ids

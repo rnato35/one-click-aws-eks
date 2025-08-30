@@ -3,6 +3,11 @@ variable "name" {
   type        = string
 }
 
+variable "environment" {
+  description = "Environment name (dev, staging, prod) for RBAC permissions logic"
+  type        = string
+}
+
 variable "vpc_id" {
   description = "VPC ID where EKS cluster will be created"
   type        = string
