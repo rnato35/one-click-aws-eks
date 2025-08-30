@@ -53,6 +53,33 @@ module "eks" {
 
   enable_aws_load_balancer_controller = true
 
+  # RBAC Configuration (recommended)
+  enable_rbac = true
+  cluster_admin_arns = [
+    "arn:aws:iam::123456789012:user/admin-user"
+  ]
+  developer_arns = [
+    "arn:aws:iam::123456789012:user/developer-user"
+  ]
+  viewer_arns = [
+    "arn:aws:iam::123456789012:user/monitoring-user"
+  ]
+  require_mfa = false  # Set to true for production
+  
+  # Managed Namespaces
+  managed_namespaces = {
+    apps = {
+      labels = {
+        "app.kubernetes.io/environment" = "development"
+        "app.kubernetes.io/tier"        = "application"
+      }
+      annotations = {
+        "description" = "Main application namespace"
+      }
+      developer_access = ["write"]
+    }
+  }
+
   tags = {
     Environment = "dev"
     ManagedBy   = "terraform"

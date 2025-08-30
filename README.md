@@ -83,23 +83,35 @@ Complete Terraform solution for AWS three-tier architecture with EKS: VPC networ
 ## Key Features
 
 ### **Networking**
+
 - **3-Tier Architecture**: Public, Private App, Private DB subnets across 2 AZs
 - **Internet Connectivity**: Internet Gateway for public access, NAT Gateway for private outbound
 - **Automatic CIDR Calculation**: Auto-derives subnet CIDRs from VPC CIDR
 
 ### **EKS Cluster**
+
 - **Fargate-Only**: Serverless container execution, no EC2 node management
 - **Multi-Namespace**: Pre-configured namespaces (default, kube-system, apps)
 - **AWS Load Balancer Controller**: Ready for ALB/NLB integration
 - **Security**: KMS encryption, CloudWatch logging, OIDC for service accounts
+- **RBAC**: Tiered access control with dedicated IAM roles and Kubernetes RBAC
 
 ### **Production-Ready**
+
 - **High Availability**: Multi-AZ deployment
 - **Monitoring**: CloudWatch integration for cluster and application logs
 - **GitOps**: Branch-based deployment pipeline
-- **Security**: Least-privilege IAM, network isolation
+- **Security**: Least-privilege IAM, network isolation, comprehensive RBAC
+
+### **Access Control & Security**
+
+- **🔴 Cluster Admins**: Platform team with full cluster access
+- **🟡 Developers**: Namespace-scoped access for application development
+- **🟢 Viewers**: Read-only access for monitoring and troubleshooting
+- **MFA Support**: Optional multi-factor authentication for role assumption
 
 ## Structure
+
 - **modules/**
   - **network/**: VPC, subnets, routing, optional NACLs and flow logs
   - **eks/**: EKS cluster, Fargate profiles, add-ons, Load Balancer Controller
@@ -108,6 +120,7 @@ Complete Terraform solution for AWS three-tier architecture with EKS: VPC networ
 ## Quick Start
 
 ### Prerequisites
+
 1. **AWS Account** with appropriate permissions
 2. **S3 Bucket & DynamoDB Table** for Terraform backend
 3. **GitHub OIDC** configured with AWS IAM role
@@ -116,6 +129,7 @@ Complete Terraform solution for AWS three-tier architecture with EKS: VPC networ
 ### Option 1: GitOps Deployment (Recommended)
 
 #### Step 1: Setup GitOps Branches
+
 ```bash
 # Clone the repository
 git clone <your-repo-url>
@@ -133,6 +147,7 @@ git checkout main && git checkout -b apps/prod && git push -u origin apps/prod
 ```
 
 #### Step 2: Deploy Infrastructure
+
 ```bash
 # Make infrastructure changes
 git checkout env/dev
@@ -143,6 +158,7 @@ git push origin env/dev
 ```
 
 #### Step 3: Deploy Applications
+
 ```bash
 # Deploy applications
 git checkout apps/dev
@@ -154,13 +170,15 @@ git push origin apps/dev
 ### Option 2: Manual Deployment
 
 #### Infrastructure
+
 ```bash
 cd infra/envs
 terraform init -backend-config="bucket=YOUR_BUCKET" # ... other backend configs
 terraform apply -var-file="dev/terraform.tfvars"
 ```
 
-#### Applications  
+#### Applications
+
 ```bash
 cd k8s/environments/dev
 terraform init -backend-config="bucket=YOUR_BUCKET" # ... other backend configs
@@ -168,22 +186,57 @@ terraform apply -var="cluster_name=one-click-dev-eks"
 ```
 
 ### Option 3: Manual Triggers (GitHub UI)
+
 1. Go to **GitHub Actions** tab
 2. Select **terraform** or **applications** workflow
-3. Click **"Run workflow"** 
+3. Click **"Run workflow"**
 4. Choose environment and action
 5. Deploy with one click! 🚀
 
 ## Post-Deployment
-After successful deployment:
+
+### Cluster Access Setup
+
+After successful deployment, configure cluster access using the RBAC system:
+
 ```bash
-# Configure kubectl
-aws eks update-kubeconfig --name one-click-dev-eks --region us-east-1
+# 1. Get cluster information from Terraform outputs
+terraform output eks_rbac_roles
+terraform output eks_rbac_authentication_guide
 
-# Check cluster status
+# 2. Configure kubectl with admin access (if you're in cluster_admin_arns)
+aws eks update-kubeconfig --name one-click-dev-eks --region us-east-1 --profile YOUR_PROFILE
+
+# 3. Test cluster access
 kubectl get nodes
-kubectl get pods -A
+kubectl get namespaces
 
+# 4. Check RBAC configuration
+kubectl get clusterrolebindings | grep eks
+kubectl get rolebindings -n apps
+```
+
+### Role-Based Access Examples
+
+```bash
+# For Developers (namespace-scoped access)
+# First assume the developer role, then:
+kubectl get pods -n apps              # ✅ Allowed
+kubectl create deployment -n apps     # ✅ Allowed  
+kubectl get nodes                     # ✅ Allowed (read-only)
+kubectl delete namespace kube-system  # ❌ Forbidden
+
+# For Viewers (read-only access)
+# First assume the viewer role, then:
+kubectl get pods -A                   # ✅ Allowed
+kubectl describe deployment -n apps   # ✅ Allowed
+kubectl create deployment -n apps     # ❌ Forbidden
+
+```
+
+### Application Testing
+
+```bash
 # Access observability test app
 kubectl port-forward -n apps svc/observability-test 8080:80
 curl http://localhost:8080
@@ -193,19 +246,28 @@ kubectl port-forward -n apps svc/observability-test 9113:9113
 curl http://localhost:9113/metrics
 ```
 
+**Need help with access?** See the detailed guides:
+
+- 📖 [EKS Authentication Guide](./docs/EKS_AUTHENTICATION.md)
+- 🔐 [RBAC Configuration Guide](./docs/RBAC_GUIDE.md)
+- 🐛 [Troubleshooting Guide](./docs/TROUBLESHOOTING.md)
+
 ## GitOps Workflow
 
 ### Infrastructure Changes
+
 1. **Create PR** against `env/dev` → Triggers terraform plan
 2. **Merge PR** → Triggers terraform apply to dev
 3. **Promote** to staging/prod by creating PRs against respective branches
 
-### Application Changes  
+### Application Changes
+
 1. **Create PR** against `apps/dev` → Triggers terraform plan
 2. **Merge PR** → Triggers terraform apply to dev
 3. **Promote** to staging/prod by creating PRs against respective branches
 
 ### Manual Deployments
+
 - **Infrastructure**: Use **terraform** workflow with manual trigger
 - **Applications**: Use **applications** workflow with manual trigger
 - **Available for all environments**: dev, staging, prod

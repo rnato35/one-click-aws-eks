@@ -93,3 +93,78 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# ===================================
+# RBAC Configuration Variables
+# ===================================
+
+variable "enable_rbac" {
+  description = "Enable RBAC configuration with tiered IAM roles and Kubernetes RBAC"
+  type        = bool
+  default     = true
+}
+
+variable "cluster_admin_arns" {
+  description = "List of IAM user/role ARNs that can assume the cluster admin role"
+  type        = list(string)
+  default     = []
+}
+
+variable "developer_arns" {
+  description = "List of IAM user/role ARNs that can assume the developer role"
+  type        = list(string)
+  default     = []
+}
+
+variable "viewer_arns" {
+  description = "List of IAM user/role ARNs that can assume the viewer role"
+  type        = list(string)
+  default     = []
+}
+
+variable "require_mfa" {
+  description = "Require MFA for assuming IAM roles (recommended for production)"
+  type        = bool
+  default     = false
+}
+
+variable "additional_user_mappings" {
+  description = "Additional IAM user mappings for aws-auth ConfigMap"
+  type = list(object({
+    userarn  = string
+    username = string
+    groups   = list(string)
+  }))
+  default = []
+}
+
+# ===================================
+# Namespace Management Variables
+# ===================================
+
+variable "managed_namespaces" {
+  description = "Map of managed namespaces with access configuration"
+  type = map(object({
+    labels = optional(map(string), {})
+    annotations = optional(map(string), {})
+    developer_access = optional(list(string), [])
+  }))
+  default = {
+    apps = {
+      labels = {
+        "app.kubernetes.io/environment" = "development"
+        "app.kubernetes.io/tier"        = "application"
+      }
+      annotations = {
+        "description" = "Main application namespace for developers"
+      }
+      developer_access = ["write"]
+    }
+  }
+}
+
+variable "enable_network_policies" {
+  description = "Enable default network policies for namespace isolation"
+  type        = bool
+  default     = false
+}

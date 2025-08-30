@@ -156,3 +156,64 @@ variable "eks_enable_irsa_for_vpc_cni" {
   type        = bool
   default     = false
 }
+
+# ===================================
+# EKS RBAC Configuration
+# ===================================
+
+variable "eks_enable_rbac" {
+  description = "Enable RBAC configuration with tiered IAM roles"
+  type        = bool
+  default     = true
+}
+
+variable "eks_cluster_admin_arns" {
+  description = "List of IAM user/role ARNs that can assume the cluster admin role"
+  type        = list(string)
+  default     = []
+}
+
+variable "eks_developer_arns" {
+  description = "List of IAM user/role ARNs that can assume the developer role"
+  type        = list(string)
+  default     = []
+}
+
+variable "eks_viewer_arns" {
+  description = "List of IAM user/role ARNs that can assume the viewer role"
+  type        = list(string)
+  default     = []
+}
+
+variable "eks_require_mfa" {
+  description = "Require MFA for assuming IAM roles (recommended for production)"
+  type        = bool
+  default     = false
+}
+
+variable "eks_managed_namespaces" {
+  description = "Map of managed namespaces with access configuration"
+  type = map(object({
+    labels = optional(map(string), {})
+    annotations = optional(map(string), {})
+    developer_access = optional(list(string), [])
+  }))
+  default = {
+    apps = {
+      labels = {
+        "app.kubernetes.io/environment" = "development"
+        "app.kubernetes.io/tier"        = "application"
+      }
+      annotations = {
+        "description" = "Main application namespace for developers"
+      }
+      developer_access = ["write"]
+    }
+  }
+}
+
+variable "eks_enable_network_policies" {
+  description = "Enable default network policies for namespace isolation"
+  type        = bool
+  default     = false
+}

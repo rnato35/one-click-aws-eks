@@ -100,3 +100,47 @@ output "kube_proxy_addon" {
     addon_version = aws_eks_addon.kube_proxy.addon_version
   }
 }
+
+# ===================================
+# RBAC Outputs
+# ===================================
+
+output "rbac_roles" {
+  description = "Map of RBAC IAM role ARNs for cluster access"
+  value = var.enable_rbac ? {
+    cluster_admin = try(aws_iam_role.eks_cluster_admins[0].arn, null)
+    developer     = try(aws_iam_role.eks_developers[0].arn, null)
+    viewer        = try(aws_iam_role.eks_viewers[0].arn, null)
+  } : {}
+}
+
+output "cluster_admin_role_arn" {
+  description = "ARN of the EKS cluster admin IAM role"
+  value       = var.enable_rbac ? try(aws_iam_role.eks_cluster_admins[0].arn, null) : null
+}
+
+output "developer_role_arn" {
+  description = "ARN of the EKS developer IAM role"
+  value       = var.enable_rbac ? try(aws_iam_role.eks_developers[0].arn, null) : null
+}
+
+output "viewer_role_arn" {
+  description = "ARN of the EKS viewer IAM role"
+  value       = var.enable_rbac ? try(aws_iam_role.eks_viewers[0].arn, null) : null
+}
+
+
+output "managed_namespaces" {
+  description = "List of managed namespaces created"
+  value       = keys(var.managed_namespaces)
+}
+
+output "rbac_authentication_guide" {
+  description = "Quick reference for authenticating to the cluster"
+  value = var.enable_rbac ? {
+    cluster_admin_command = "aws sts assume-role --role-arn ${try(aws_iam_role.eks_cluster_admins[0].arn, "ROLE_NOT_CREATED")} --role-session-name cluster-admin-session"
+    developer_command     = "aws sts assume-role --role-arn ${try(aws_iam_role.eks_developers[0].arn, "ROLE_NOT_CREATED")} --role-session-name developer-session"
+    viewer_command        = "aws sts assume-role --role-arn ${try(aws_iam_role.eks_viewers[0].arn, "ROLE_NOT_CREATED")} --role-session-name viewer-session"
+    kubectl_config_command = "aws eks update-kubeconfig --region ${data.aws_region.current.region} --name ${aws_eks_cluster.this.id} --profile <your-profile>"
+  } : {}
+}

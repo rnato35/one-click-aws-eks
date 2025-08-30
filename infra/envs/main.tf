@@ -35,6 +35,15 @@ module "eks" {
   kube_proxy_addon_version = var.eks_kube_proxy_addon_version
   enable_irsa_for_vpc_cni  = var.eks_enable_irsa_for_vpc_cni
 
+  # RBAC Configuration
+  enable_rbac             = var.eks_enable_rbac
+  cluster_admin_arns      = var.eks_cluster_admin_arns
+  developer_arns          = var.eks_developer_arns
+  viewer_arns             = var.eks_viewer_arns
+  require_mfa             = var.eks_require_mfa
+  managed_namespaces      = var.eks_managed_namespaces
+  enable_network_policies = var.eks_enable_network_policies
+
   tags = local.tags
 }
 
@@ -89,4 +98,36 @@ output "eks_cluster_addons" {
 output "eks_fargate_profile_arns" {
   description = "Amazon Resource Name (ARN) of the EKS Fargate Profiles"
   value       = var.enable_eks ? module.eks[0].fargate_profile_arns : null
+}
+
+# RBAC outputs
+output "eks_rbac_roles" {
+  description = "Map of RBAC IAM role ARNs for cluster access"
+  value       = var.enable_eks ? module.eks[0].rbac_roles : {}
+}
+
+output "eks_cluster_admin_role_arn" {
+  description = "ARN of the EKS cluster admin IAM role"
+  value       = var.enable_eks ? module.eks[0].cluster_admin_role_arn : null
+}
+
+output "eks_developer_role_arn" {
+  description = "ARN of the EKS developer IAM role"
+  value       = var.enable_eks ? module.eks[0].developer_role_arn : null
+}
+
+output "eks_viewer_role_arn" {
+  description = "ARN of the EKS viewer IAM role"
+  value       = var.enable_eks ? module.eks[0].viewer_role_arn : null
+}
+
+
+output "eks_managed_namespaces" {
+  description = "List of managed namespaces created"
+  value       = var.enable_eks ? module.eks[0].managed_namespaces : []
+}
+
+output "eks_rbac_authentication_guide" {
+  description = "Quick reference for authenticating to the cluster with different roles"
+  value       = var.enable_eks ? module.eks[0].rbac_authentication_guide : {}
 }

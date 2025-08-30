@@ -86,6 +86,19 @@ eks_cluster_version                     = "1.33"
 eks_enable_cluster_log_types            = ["api", "audit"]
 eks_log_retention_in_days               = 7
 eks_enable_aws_load_balancer_controller = true
+
+# RBAC Configuration
+eks_enable_rbac = true
+eks_cluster_admin_arns = [
+  "arn:aws:iam::YOUR_ACCOUNT_ID:user/YOUR_USERNAME"  # Replace with your IAM user ARN
+]
+eks_developer_arns = [
+  # Add developer IAM user/role ARNs here
+]
+eks_viewer_arns = [
+  # Add viewer IAM user/role ARNs here
+]
+eks_require_mfa = false  # Set to true for production
 ```
 
 #### 2. Deploy Infrastructure
@@ -102,6 +115,27 @@ git push origin env/dev
 
 #### 3. Verify Infrastructure
 Monitor the GitHub Actions workflow to ensure successful deployment.
+
+#### 4. Configure Cluster Access
+After successful deployment, configure access to the EKS cluster:
+
+```bash
+# Get your AWS account ID
+aws sts get-caller-identity --query Account --output text
+
+# Update kubeconfig for cluster access
+aws eks update-kubeconfig --region us-east-1 --name one-click-dev-eks --profile YOUR_PROFILE
+
+# Test cluster access
+kubectl get nodes
+kubectl get namespaces
+
+# Check RBAC roles created (from Terraform outputs)
+terraform output eks_rbac_roles
+terraform output eks_rbac_authentication_guide
+```
+
+**Note**: If you encounter authentication issues, see the [EKS Authentication Guide](./EKS_AUTHENTICATION.md) and [Troubleshooting Guide](./TROUBLESHOOTING.md) for detailed instructions.
 
 ### Phase 2: Application Deployment
 
