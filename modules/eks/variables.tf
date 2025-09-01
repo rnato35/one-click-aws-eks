@@ -109,23 +109,6 @@ variable "enable_rbac" {
   default     = true
 }
 
-variable "cluster_admin_arns" {
-  description = "List of IAM user/role ARNs that can assume the cluster admin role"
-  type        = list(string)
-  default     = []
-}
-
-variable "developer_arns" {
-  description = "List of IAM user/role ARNs that can assume the developer role"
-  type        = list(string)
-  default     = []
-}
-
-variable "viewer_arns" {
-  description = "List of IAM user/role ARNs that can assume the viewer role"
-  type        = list(string)
-  default     = []
-}
 
 variable "require_mfa" {
   description = "Require MFA for assuming IAM roles (recommended for production)"
@@ -133,15 +116,6 @@ variable "require_mfa" {
   default     = false
 }
 
-variable "additional_user_mappings" {
-  description = "Additional IAM user mappings for aws-auth ConfigMap"
-  type = list(object({
-    userarn  = string
-    username = string
-    groups   = list(string)
-  }))
-  default = []
-}
 
 # ===================================
 # Namespace Management Variables

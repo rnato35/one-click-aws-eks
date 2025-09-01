@@ -9,12 +9,12 @@ resource "aws_kms_key" "eks" {
   enable_key_rotation     = true
 
   tags = merge(var.tags, {
-    Name = "${var.name}-eks-kms-key"
+    Name = "${var.name}-kms-key"
   })
 }
 
 resource "aws_kms_alias" "eks" {
-  name          = "alias/${var.name}-eks"
+  name          = "alias/${var.name}"
   target_key_id = aws_kms_key.eks.key_id
 }
 
@@ -28,7 +28,7 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
 
 # EKS Cluster IAM Role
 resource "aws_iam_role" "eks_cluster" {
-  name = "${var.name}-eks-cluster-role"
+  name = "${var.name}-cluster-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -53,7 +53,7 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
 
 # EKS Cluster Security Group
 resource "aws_security_group" "eks_cluster" {
-  name_prefix = "${var.name}-eks-cluster-"
+  name_prefix = "${var.name}-cluster-"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -109,7 +109,7 @@ resource "aws_eks_cluster" "this" {
 
 # Fargate Pod Execution Role
 resource "aws_iam_role" "fargate_pod_execution" {
-  name = "${var.name}-eks-fargate-pod-execution-role"
+  name = "${var.name}-fargate-pod-execution-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

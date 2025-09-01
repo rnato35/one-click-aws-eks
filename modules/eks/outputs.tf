@@ -48,6 +48,40 @@ output "fargate_profile_arns" {
   value       = { for k, v in aws_eks_fargate_profile.this : k => v.arn }
 }
 
+# ===================================
+# RBAC IAM Groups Outputs
+# ===================================
+
+output "iam_group_eks_devops_name" {
+  description = "Name of the EKS DevOps IAM Group"
+  value       = var.enable_rbac ? aws_iam_group.eks_devops[0].name : null
+}
+
+output "iam_group_eks_devops_arn" {
+  description = "ARN of the EKS DevOps IAM Group"
+  value       = var.enable_rbac ? aws_iam_group.eks_devops[0].arn : null
+}
+
+output "iam_group_eks_developers_name" {
+  description = "Name of the EKS Developers IAM Group"
+  value       = var.enable_rbac ? aws_iam_group.eks_developers[0].name : null
+}
+
+output "iam_group_eks_developers_arn" {
+  description = "ARN of the EKS Developers IAM Group"
+  value       = var.enable_rbac ? aws_iam_group.eks_developers[0].arn : null
+}
+
+output "iam_group_eks_viewers_name" {
+  description = "Name of the EKS Viewers IAM Group"
+  value       = var.enable_rbac ? aws_iam_group.eks_viewers[0].name : null
+}
+
+output "iam_group_eks_viewers_arn" {
+  description = "ARN of the EKS Viewers IAM Group"
+  value       = var.enable_rbac ? aws_iam_group.eks_viewers[0].arn : null
+}
+
 output "fargate_profile_ids" {
   description = "EKS Fargate Profile names"
   value       = { for k, v in aws_eks_fargate_profile.this : k => v.fargate_profile_name }

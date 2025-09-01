@@ -38,12 +38,10 @@ module "eks" {
 
   # RBAC Configuration
   enable_rbac             = var.eks_enable_rbac
-  cluster_admin_arns      = var.eks_cluster_admin_arns
-  developer_arns          = var.eks_developer_arns
-  viewer_arns             = var.eks_viewer_arns
   require_mfa             = var.eks_require_mfa
   managed_namespaces      = var.eks_managed_namespaces
   enable_network_policies = var.eks_enable_network_policies
+  aws_profile             = var.aws_profile
 
   tags = local.tags
 }
@@ -106,22 +104,6 @@ output "eks_rbac_roles" {
   description = "Map of RBAC IAM role ARNs for cluster access"
   value       = var.enable_eks ? module.eks[0].rbac_roles : {}
 }
-
-output "eks_cluster_admin_role_arn" {
-  description = "ARN of the EKS cluster admin IAM role"
-  value       = var.enable_eks ? module.eks[0].cluster_admin_role_arn : null
-}
-
-output "eks_developer_role_arn" {
-  description = "ARN of the EKS developer IAM role"
-  value       = var.enable_eks ? module.eks[0].developer_role_arn : null
-}
-
-output "eks_viewer_role_arn" {
-  description = "ARN of the EKS viewer IAM role"
-  value       = var.enable_eks ? module.eks[0].viewer_role_arn : null
-}
-
 
 output "eks_managed_namespaces" {
   description = "List of managed namespaces created"

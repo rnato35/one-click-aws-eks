@@ -167,23 +167,6 @@ variable "eks_enable_rbac" {
   default     = true
 }
 
-variable "eks_cluster_admin_arns" {
-  description = "List of IAM user/role ARNs that can assume the cluster admin role"
-  type        = list(string)
-  default     = []
-}
-
-variable "eks_developer_arns" {
-  description = "List of IAM user/role ARNs that can assume the developer role"
-  type        = list(string)
-  default     = []
-}
-
-variable "eks_viewer_arns" {
-  description = "List of IAM user/role ARNs that can assume the viewer role"
-  type        = list(string)
-  default     = []
-}
 
 variable "eks_require_mfa" {
   description = "Require MFA for assuming IAM roles (recommended for production)"

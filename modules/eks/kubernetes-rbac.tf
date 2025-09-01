@@ -5,18 +5,17 @@
 # ClusterRoles
 # ===================================
 
-# Developers ClusterRole - namespace-scoped permissions
+# Developers ClusterRole - Read/Write for Dev, Read-only for Staging/Prod
 # This ClusterRole defines permissions that will be applied via namespace-scoped RoleBindings
-resource "kubernetes_cluster_role_v1" "developers" {
+resource "kubernetes_cluster_role_v1" "developers_readwrite" {
   count      = var.enable_rbac ? 1 : 0
   depends_on = [aws_eks_cluster.this]
 
   metadata {
-    name = "eks:developers"
+    name = "eks:developers-readwrite"
   }
 
-  # Note: No cluster-wide namespace listing - developers only see their assigned namespaces
-
+  # Full read/write permissions for development environment
   rule {
     api_groups = [""]
     resources = [
@@ -90,6 +89,76 @@ resource "kubernetes_cluster_role_v1" "developers" {
       "update",
       "patch",
       "delete"
+    ]
+  }
+}
+
+# Developers ClusterRole - Read-only for Staging/Prod environments
+resource "kubernetes_cluster_role_v1" "developers_readonly" {
+  count      = var.enable_rbac ? 1 : 0
+  depends_on = [aws_eks_cluster.this]
+
+  metadata {
+    name = "eks:developers-readonly"
+  }
+
+  # Read-only permissions for staging/production environments
+  rule {
+    api_groups = [""]
+    resources = [
+      "pods",
+      "pods/log",
+      "pods/status",
+      "services",
+      "services/status",
+      "endpoints",
+      "configmaps",
+      "persistentvolumeclaims"
+    ]
+    verbs = [
+      "get",
+      "list",
+      "watch"
+    ]
+  }
+
+  rule {
+    api_groups = ["apps"]
+    resources = [
+      "deployments",
+      "deployments/status",
+      "replicasets",
+      "replicasets/status"
+    ]
+    verbs = [
+      "get",
+      "list",
+      "watch"
+    ]
+  }
+
+  rule {
+    api_groups = ["networking.k8s.io"]
+    resources = [
+      "ingresses",
+      "networkpolicies"
+    ]
+    verbs = [
+      "get",
+      "list",
+      "watch"
+    ]
+  }
+
+  rule {
+    api_groups = ["autoscaling"]
+    resources = [
+      "horizontalpodautoscalers"
+    ]
+    verbs = [
+      "get",
+      "list",
+      "watch"
     ]
   }
 }

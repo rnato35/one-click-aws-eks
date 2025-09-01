@@ -41,18 +41,17 @@ resource "kubernetes_namespace_v1" "managed_namespaces" {
 # Namespace-specific RoleBindings
 # ===================================
 
-# Bind developers to specific namespaces with environment-aware permissions
-# Dev environment: developers get write access when developer_access contains "write"
-# Staging/Prod environment: developers get read-only access when developer_access contains "read"
+# Bind developers to apps namespace with environment-aware permissions
+# Dev environment: developers get read/write access to apps namespace only
 resource "kubernetes_role_binding_v1" "developers_namespace_access_write" {
   for_each = var.enable_rbac && var.environment == "dev" ? {
     for ns_name, ns_config in var.managed_namespaces : ns_name => ns_config
-    if contains(ns_config.developer_access, "write")
+    if ns_name == "apps"  # Only bind to apps namespace in dev
   } : {}
   
   depends_on = [
     kubernetes_namespace_v1.managed_namespaces,
-    kubernetes_cluster_role_v1.developers
+    kubernetes_cluster_role_v1.developers_readwrite
   ]
 
   metadata {
@@ -63,7 +62,7 @@ resource "kubernetes_role_binding_v1" "developers_namespace_access_write" {
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "ClusterRole"
-    name      = "eks:developers"
+    name      = "eks:developers-readwrite"
   }
 
   subject {
@@ -72,16 +71,16 @@ resource "kubernetes_role_binding_v1" "developers_namespace_access_write" {
   }
 }
 
-# Bind developers to read-only access in staging/prod environments
+# Bind developers to read-only access in staging/prod environments (apps namespace only)
 resource "kubernetes_role_binding_v1" "developers_namespace_access_read" {
   for_each = var.enable_rbac && (var.environment == "staging" || var.environment == "prod") ? {
     for ns_name, ns_config in var.managed_namespaces : ns_name => ns_config
-    if contains(ns_config.developer_access, "read")
+    if ns_name == "apps"  # Only bind to apps namespace in staging/prod
   } : {}
   
   depends_on = [
     kubernetes_namespace_v1.managed_namespaces,
-    kubernetes_cluster_role_v1.viewers
+    kubernetes_cluster_role_v1.developers_readonly
   ]
 
   metadata {
@@ -92,7 +91,7 @@ resource "kubernetes_role_binding_v1" "developers_namespace_access_read" {
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "ClusterRole"
-    name      = "eks:viewers"
+    name      = "eks:developers-readonly"
   }
 
   subject {
