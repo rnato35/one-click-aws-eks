@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "nginx-sample.fullname" . }}
+  name: {{ include "chart.fullname" . }}
   labels:
-    {{- include "nginx-sample.labels" . | nindent 4 }}
+    {{- include "chart.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "nginx-sample.selectorLabels" . | nindent 6 }}
+      {{- include "chart.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -19,7 +19,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "nginx-sample.selectorLabels" . | nindent 8 }}
+        {{- include "chart.selectorLabels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -28,7 +28,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "nginx-sample.serviceAccountName" . }}
+      serviceAccountName: {{ include "chart.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -68,10 +68,10 @@ spec:
       volumes:
         - name: html-content
           configMap:
-            name: {{ include "nginx-sample.fullname" . }}-html
+            name: {{ include "chart.fullname" . }}-html
         - name: nginx-config
           configMap:
-            name: {{ include "nginx-sample.fullname" . }}-nginx-config
+            name: {{ include "chart.fullname" . }}-nginx-config
         - name: cache-volume
           emptyDir: {}
         - name: run-volume

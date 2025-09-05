@@ -224,6 +224,12 @@ variable "nginx_sample_domain_name" {
   default     = "nginx-sample.local"
 }
 
+variable "nginx_sample_certificate_arn" {
+  description = "ACM certificate ARN for nginx-sample domain"
+  type        = string
+  default     = ""
+}
+
 variable "nginx_sample_replica_count" {
   description = "Number of replicas for nginx-sample"
   type        = number

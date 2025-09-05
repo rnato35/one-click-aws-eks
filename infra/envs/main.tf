@@ -61,6 +61,7 @@ module "applications" {
   nginx_sample = {
     enabled            = var.nginx_sample_enabled
     domain_name        = var.nginx_sample_domain_name
+    certificate_arn    = var.nginx_sample_certificate_arn
     replica_count      = var.nginx_sample_replica_count
     enable_autoscaling = var.nginx_sample_enable_autoscaling
     min_replicas       = var.nginx_sample_min_replicas

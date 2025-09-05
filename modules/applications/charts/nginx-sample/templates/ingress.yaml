@@ -2,20 +2,23 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "nginx-sample.fullname" . }}
+  name: {{ include "chart.fullname" . }}
   labels:
-    {{- include "nginx-sample.labels" . | nindent 4 }}
+    {{- include "chart.labels" . | nindent 4 }}
   annotations:
     # AWS Load Balancer Controller annotations
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.aws.scheme | default "internet-facing" }}
     alb.ingress.kubernetes.io/target-type: {{ .Values.ingress.aws.targetType | default "ip" }}
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}{{- if .Values.ingress.tls }},{"HTTPS":443}{{- end }}]'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
     
-    {{- if .Values.ingress.tls }}
     # SSL/TLS configuration
     alb.ingress.kubernetes.io/ssl-redirect: '443'
+    {{- if .Values.ingress.aws.certificateArn }}
     alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.aws.certificateArn }}
+    {{- else }}
+    # ERROR: Certificate ARN is required for production deployment
+    {{- fail "ingress.aws.certificateArn is required for HTTPS" }}
     {{- end }}
     
     # Health check configuration
@@ -26,14 +29,11 @@ metadata:
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
     
     # Load balancer attributes
-    alb.ingress.kubernetes.io/load-balancer-attributes: |
-      idle_timeout.timeout_seconds=60
-      routing.http2.enabled=true
-      access_logs.s3.enabled={{ .Values.ingress.aws.accessLogs.enabled | default false }}
-      {{- if .Values.ingress.aws.accessLogs.enabled }}
-      access_logs.s3.bucket={{ .Values.ingress.aws.accessLogs.bucket }}
-      access_logs.s3.prefix={{ .Values.ingress.aws.accessLogs.prefix | default "nginx-sample" }}
-      {{- end }}
+    {{- if .Values.ingress.aws.accessLogs.enabled }}
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60,routing.http2.enabled=true,access_logs.s3.enabled=true,access_logs.s3.bucket={{ .Values.ingress.aws.accessLogs.bucket }},access_logs.s3.prefix={{ .Values.ingress.aws.accessLogs.prefix | default $.Chart.Name }}
+    {{- else }}
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60,routing.http2.enabled=true,access_logs.s3.enabled=false
+    {{- end }}
     
     # Security groups and subnets
     {{- if .Values.ingress.aws.securityGroups }}
@@ -44,11 +44,7 @@ metadata:
     {{- end }}
     
     # Tags for the ALB
-    alb.ingress.kubernetes.io/tags: |
-      Environment={{ .Values.environment | default "dev" }}
-      Application=nginx-sample
-      ManagedBy=helm
-      Owner=rnato35
+    alb.ingress.kubernetes.io/tags: Environment={{ .Values.environment | default "dev" }},Application={{ .Chart.Name }},ManagedBy=helm,Owner=rnato35
     
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
@@ -69,7 +65,7 @@ spec:
   {{- end }}
   rules:
     {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
+    - host: {{ .host | default (printf "%s.local" $.Chart.Name) | quote }}
       http:
         paths:
           {{- range .paths }}
@@ -77,7 +73,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "nginx-sample.fullname" $ }}
+                name: {{ include "chart.fullname" $ }}
                 port:
                   number: {{ $.Values.service.port }}
           {{- end }}

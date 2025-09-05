@@ -55,3 +55,19 @@ eks_managed_namespaces = {
 }
 
 eks_enable_network_policies = false  # Enable for network isolation between namespaces
+
+# Applications Configuration
+enable_applications = true
+
+# Nginx Sample Application
+nginx_sample_enabled                = true
+nginx_sample_domain_name           = "renatomendoza.io"
+nginx_sample_certificate_arn       = "arn:aws:acm:us-east-1:825982271549:certificate/97a22ccc-77bf-4d7d-81ae-c6afc27fe7d9"
+nginx_sample_replica_count         = 1
+nginx_sample_enable_autoscaling    = false
+nginx_sample_min_replicas          = 1
+nginx_sample_max_replicas          = 3
+nginx_sample_cpu_limit             = "200m"
+nginx_sample_memory_limit          = "256Mi"
+nginx_sample_cpu_request           = "100m"
+nginx_sample_memory_request        = "128Mi"

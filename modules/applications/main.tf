@@ -56,6 +56,14 @@ resource "helm_release" "nginx_sample" {
     {
       name  = "ingress.hosts[0].host"
       value = var.nginx_sample.domain_name
+    },
+    {
+      name  = "ingress.tls[0].hosts[0]"
+      value = var.nginx_sample.domain_name
+    },
+    {
+      name  = "ingress.aws.certificateArn"
+      value = var.nginx_sample.certificate_arn
     }
   ]
 

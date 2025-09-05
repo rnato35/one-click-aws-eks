@@ -31,13 +31,18 @@ ingress:
   enabled: true
   className: "alb"
   hosts:
-    - host: nginx-sample-dev.internal
+    - host: ""  # Will be overridden by Terraform
       paths:
-        - path: /
+        - path: /architecture
           pathType: Prefix
+  tls:
+    - secretName: renatomendoza-io-tls
+      hosts:
+        - ""  # Will be overridden by Terraform
   aws:
-    scheme: internal  # Internal load balancer for dev
+    scheme: internet-facing  # Public load balancer for production domain
     targetType: ip
+    certificateArn: ""  # Will be overridden by Terraform
     accessLogs:
       enabled: false
 

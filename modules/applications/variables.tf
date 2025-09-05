@@ -26,6 +26,7 @@ variable "nginx_sample" {
   type = object({
     enabled          = bool
     domain_name      = string
+    certificate_arn  = string
     replica_count    = number
     enable_autoscaling = bool
     min_replicas     = number
@@ -38,6 +39,7 @@ variable "nginx_sample" {
   default = {
     enabled          = true
     domain_name      = "nginx-sample.local"
+    certificate_arn  = ""
     replica_count    = 1
     enable_autoscaling = false
     min_replicas     = 1
