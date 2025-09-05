@@ -200,3 +200,75 @@ variable "eks_enable_network_policies" {
   type        = bool
   default     = false
 }
+
+# ===================================
+# Applications Configuration
+# ===================================
+
+variable "enable_applications" {
+  description = "Enable deployment of applications to EKS cluster"
+  type        = bool
+  default     = true
+}
+
+# Nginx Sample Application Variables
+variable "nginx_sample_enabled" {
+  description = "Enable nginx-sample application deployment"
+  type        = bool
+  default     = true
+}
+
+variable "nginx_sample_domain_name" {
+  description = "Domain name for nginx-sample application"
+  type        = string
+  default     = "nginx-sample.local"
+}
+
+variable "nginx_sample_replica_count" {
+  description = "Number of replicas for nginx-sample"
+  type        = number
+  default     = 1
+}
+
+variable "nginx_sample_enable_autoscaling" {
+  description = "Enable horizontal pod autoscaling for nginx-sample"
+  type        = bool
+  default     = false
+}
+
+variable "nginx_sample_min_replicas" {
+  description = "Minimum number of replicas for nginx-sample autoscaling"
+  type        = number
+  default     = 1
+}
+
+variable "nginx_sample_max_replicas" {
+  description = "Maximum number of replicas for nginx-sample autoscaling"
+  type        = number
+  default     = 5
+}
+
+variable "nginx_sample_cpu_limit" {
+  description = "CPU limit for nginx-sample pods"
+  type        = string
+  default     = "200m"
+}
+
+variable "nginx_sample_memory_limit" {
+  description = "Memory limit for nginx-sample pods"
+  type        = string
+  default     = "256Mi"
+}
+
+variable "nginx_sample_cpu_request" {
+  description = "CPU request for nginx-sample pods"
+  type        = string
+  default     = "100m"
+}
+
+variable "nginx_sample_memory_request" {
+  description = "Memory request for nginx-sample pods"
+  type        = string
+  default     = "128Mi"
+}
+

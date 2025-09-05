@@ -1,6 +1,8 @@
 # One-Click AWS Three-Tier Foundation
 
-Complete Terraform solution for AWS three-tier architecture with EKS: VPC networking, EKS cluster with Fargate, AWS Load Balancer Controller, and application-ready namespaces.
+Complete Terraform solution for AWS three-tier architecture with EKS: VPC networking, EKS cluster with Fargate, AWS Load Balancer Controller, and **sample applications deployed automatically**.
+
+🚀 **One-click deployment** - Single `terraform apply` command deploys infrastructure AND applications!
 
 ## Architecture Overview
 

@@ -1,0 +1,85 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "nginx-sample.fullname" . }}
+  labels:
+    {{- include "nginx-sample.labels" . | nindent 4 }}
+  annotations:
+    # AWS Load Balancer Controller annotations
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.aws.scheme | default "internet-facing" }}
+    alb.ingress.kubernetes.io/target-type: {{ .Values.ingress.aws.targetType | default "ip" }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}{{- if .Values.ingress.tls }},{"HTTPS":443}{{- end }}]'
+    
+    {{- if .Values.ingress.tls }}
+    # SSL/TLS configuration
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.aws.certificateArn }}
+    {{- end }}
+    
+    # Health check configuration
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
+    
+    # Load balancer attributes
+    alb.ingress.kubernetes.io/load-balancer-attributes: |
+      idle_timeout.timeout_seconds=60
+      routing.http2.enabled=true
+      access_logs.s3.enabled={{ .Values.ingress.aws.accessLogs.enabled | default false }}
+      {{- if .Values.ingress.aws.accessLogs.enabled }}
+      access_logs.s3.bucket={{ .Values.ingress.aws.accessLogs.bucket }}
+      access_logs.s3.prefix={{ .Values.ingress.aws.accessLogs.prefix | default "nginx-sample" }}
+      {{- end }}
+    
+    # Security groups and subnets
+    {{- if .Values.ingress.aws.securityGroups }}
+    alb.ingress.kubernetes.io/security-groups: {{ join "," .Values.ingress.aws.securityGroups }}
+    {{- end }}
+    {{- if .Values.ingress.aws.subnets }}
+    alb.ingress.kubernetes.io/subnets: {{ join "," .Values.ingress.aws.subnets }}
+    {{- end }}
+    
+    # Tags for the ALB
+    alb.ingress.kubernetes.io/tags: |
+      Environment={{ .Values.environment | default "dev" }}
+      Application=nginx-sample
+      ManagedBy=helm
+      Owner=rnato35
+    
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "nginx-sample.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}

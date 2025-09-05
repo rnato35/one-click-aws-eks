@@ -31,13 +31,13 @@ provider "aws" {
 }
 
 provider "kubernetes" {
-  # Configure only when EKS is enabled and cluster exists
-  host                   = var.enable_eks ? try(module.eks[0].cluster_endpoint, "https://kubernetes.default.svc") : "https://kubernetes.default.svc"
-  cluster_ca_certificate = var.enable_eks ? try(base64decode(module.eks[0].cluster_certificate_authority_data), null) : null
+  # Configure only when EKS and applications are enabled
+  host                   = (var.enable_eks && var.enable_applications) ? try(module.eks[0].cluster_endpoint, "https://kubernetes.default.svc") : "https://kubernetes.default.svc"
+  cluster_ca_certificate = (var.enable_eks && var.enable_applications) ? try(base64decode(module.eks[0].cluster_certificate_authority_data), null) : null
   
   dynamic "exec" {
-    # Only configure exec authentication when EKS is enabled
-    for_each = var.enable_eks ? [1] : []
+    # Only configure exec authentication when EKS and applications are enabled
+    for_each = (var.enable_eks && var.enable_applications) ? [1] : []
     content {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "aws"
@@ -46,21 +46,21 @@ provider "kubernetes" {
   }
   
   # Ignore server certificate verification for dummy configurations
-  insecure = !var.enable_eks
+  insecure = !(var.enable_eks && var.enable_applications)
 }
 
 provider "helm" {
   kubernetes = {
-    host                   = var.enable_eks ? try(module.eks[0].cluster_endpoint, "https://kubernetes.default.svc") : "https://kubernetes.default.svc"
-    cluster_ca_certificate = var.enable_eks ? try(base64decode(module.eks[0].cluster_certificate_authority_data), null) : null
+    host                   = (var.enable_eks && var.enable_applications) ? try(module.eks[0].cluster_endpoint, "https://kubernetes.default.svc") : "https://kubernetes.default.svc"
+    cluster_ca_certificate = (var.enable_eks && var.enable_applications) ? try(base64decode(module.eks[0].cluster_certificate_authority_data), null) : null
     
-    exec = var.enable_eks ? {
+    exec = (var.enable_eks && var.enable_applications) ? {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "aws"
       args        = ["eks", "get-token", "--cluster-name", try(module.eks[0].cluster_id, ""), "--profile", var.aws_profile]
     } : null
     
-    insecure = !var.enable_eks
+    insecure = !(var.enable_eks && var.enable_applications)
   }
 }
 

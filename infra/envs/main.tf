@@ -1,3 +1,4 @@
+
 module "network" {
   source = "../../modules/network"
 
@@ -44,6 +45,35 @@ module "eks" {
   aws_profile             = var.aws_profile
 
   tags = local.tags
+}
+
+# Applications module - Deploy applications to EKS cluster
+module "applications" {
+  count  = var.enable_eks && var.enable_applications ? 1 : 0
+  source = "../../modules/applications"
+
+  cluster_name = module.eks[0].cluster_id
+  environment  = var.env_name
+  region       = var.region
+  tags         = local.tags
+
+  # Nginx Sample Application Configuration
+  nginx_sample = {
+    enabled            = var.nginx_sample_enabled
+    domain_name        = var.nginx_sample_domain_name
+    replica_count      = var.nginx_sample_replica_count
+    enable_autoscaling = var.nginx_sample_enable_autoscaling
+    min_replicas       = var.nginx_sample_min_replicas
+    max_replicas       = var.nginx_sample_max_replicas
+    cpu_limit          = var.nginx_sample_cpu_limit
+    memory_limit       = var.nginx_sample_memory_limit
+    cpu_request        = var.nginx_sample_cpu_request
+    memory_request     = var.nginx_sample_memory_request
+  }
+
+
+  # Wait for EKS cluster to be ready
+  depends_on = [module.eks]
 }
 
 
@@ -113,4 +143,25 @@ output "eks_managed_namespaces" {
 output "eks_rbac_authentication_guide" {
   description = "Quick reference for authenticating to the cluster with different roles"
   value       = var.enable_eks ? module.eks[0].rbac_authentication_guide : {}
+}
+
+# Applications outputs
+output "nginx_sample_namespace" {
+  description = "Namespace where nginx-sample is deployed"
+  value       = var.enable_eks && var.enable_applications ? module.applications[0].nginx_sample_namespace : null
+}
+
+output "nginx_sample_release_name" {
+  description = "Helm release name for nginx-sample"
+  value       = var.enable_eks && var.enable_applications ? module.applications[0].nginx_sample_release_name : null
+}
+
+output "apps_namespace" {
+  description = "Name of the applications namespace"
+  value       = var.enable_eks && var.enable_applications ? module.applications[0].apps_namespace : null
+}
+
+output "kubectl_commands" {
+  description = "Useful kubectl commands for accessing applications"
+  value       = var.enable_eks && var.enable_applications ? module.applications[0].kubectl_commands : {}
 }
