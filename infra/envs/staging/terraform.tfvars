@@ -25,7 +25,7 @@ eks_enable_aws_load_balancer_controller = true
 # - {cluster-name}-eks-developers: Read-only access to apps namespace in staging
 # - {cluster-name}-eks-viewers: Read-only access to all environments
 eks_enable_rbac = true
-eks_require_mfa = true       # MFA required for staging
+eks_require_mfa = true # MFA required for staging
 
 # Managed Namespaces
 eks_managed_namespaces = {
@@ -39,7 +39,7 @@ eks_managed_namespaces = {
       "description" = "Main application namespace for staging"
       "contact"     = "renato@renatomendoza.io"
     }
-    developer_access = ["read"]  # Read-only access in staging
+    developer_access = ["read"] # Read-only access in staging
   }
   # Monitoring namespace for staging
   monitoring = {
@@ -50,8 +50,8 @@ eks_managed_namespaces = {
     annotations = {
       "description" = "Monitoring and observability tools for staging"
     }
-    developer_access = ["read"]  # Read-only access in staging
+    developer_access = ["read"] # Read-only access in staging
   }
 }
 
-eks_enable_network_policies = true  # Enable network isolation for staging
+eks_enable_network_policies = true # Enable network isolation for staging

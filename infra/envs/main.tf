@@ -31,7 +31,7 @@ module "eks" {
   log_retention_in_days               = var.eks_log_retention_in_days
   fargate_profiles                    = var.eks_fargate_profiles
   enable_aws_load_balancer_controller = var.eks_enable_aws_load_balancer_controller
-  
+
   vpc_cni_addon_version    = var.eks_vpc_cni_addon_version
   coredns_addon_version    = var.eks_coredns_addon_version
   kube_proxy_addon_version = var.eks_kube_proxy_addon_version
@@ -45,6 +45,9 @@ module "eks" {
   aws_profile             = var.aws_profile
 
   tags = local.tags
+
+  # Ensure EKS cleanup waits for application cleanup
+  depends_on = [module.network]
 }
 
 # Applications module - Deploy applications to EKS cluster
@@ -75,6 +78,28 @@ module "applications" {
 
   # Wait for EKS cluster to be ready
   depends_on = [module.eks]
+}
+
+# Cleanup orchestration resource to ensure proper destroy order
+resource "null_resource" "cleanup_orchestrator" {
+  count = var.enable_eks && var.enable_applications ? 1 : 0
+
+  triggers = {
+    app_cleanup_id = module.applications[0].app_cleanup_id
+    cluster_name   = module.eks[0].cluster_id
+    timestamp      = timestamp()
+  }
+
+  # This resource creates an explicit dependency chain for destroy operations
+  # Applications cleanup -> EKS cleanup -> Network cleanup
+  depends_on = [
+    module.applications,
+    module.eks
+  ]
+
+  lifecycle {
+    create_before_destroy = false
+  }
 }
 
 

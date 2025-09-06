@@ -419,12 +419,12 @@ resource "aws_iam_openid_connect_provider" "eks" {
 
 # EKS Addons
 resource "aws_eks_addon" "vpc_cni" {
-  cluster_name                 = aws_eks_cluster.this.name
-  addon_name                   = "vpc-cni"
-  addon_version                = var.vpc_cni_addon_version
-  resolve_conflicts_on_create  = "OVERWRITE"
-  resolve_conflicts_on_update  = "OVERWRITE"
-  service_account_role_arn     = var.enable_irsa_for_vpc_cni ? aws_iam_role.vpc_cni[0].arn : null
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "vpc-cni"
+  addon_version               = var.vpc_cni_addon_version
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+  service_account_role_arn    = var.enable_irsa_for_vpc_cni ? aws_iam_role.vpc_cni[0].arn : null
 
   depends_on = [
     aws_eks_fargate_profile.this
@@ -444,7 +444,7 @@ resource "aws_eks_addon" "coredns" {
     computeType = "Fargate"
     # Remove the default eks.amazonaws.com/compute-type: ec2 node selector
     nodeSelector = {}
-    tolerations = []
+    tolerations  = []
   })
 
   depends_on = [
@@ -510,6 +510,18 @@ resource "helm_release" "aws_load_balancer_controller" {
   namespace  = "kube-system"
   version    = "1.8.1"
 
+  # Timeout configurations for better reliability during destroy
+  timeout         = 600 # 10 minutes for install/upgrade
+  wait            = true
+  wait_for_jobs   = true
+  cleanup_on_fail = true
+  force_update    = true
+  replace         = true
+  reset_values    = true
+  reuse_values    = false
+  recreate_pods   = false
+  max_history     = 5
+
   set = [
     {
       name  = "clusterName"
@@ -543,4 +555,37 @@ resource "helm_release" "aws_load_balancer_controller" {
   ]
 }
 
+# Cleanup resource for EKS resources during destroy
+resource "null_resource" "eks_cleanup" {
+  triggers = {
+    vpc_id       = var.vpc_id
+    cluster_name = var.name
+    aws_region   = data.aws_region.current.region
+    script_path  = "${path.module}/../../scripts/cleanup-eks-resources.sh"
+    # Trigger when any Helm releases are updated/changed
+    helm_releases = var.enable_aws_load_balancer_controller ? "aws-load-balancer-controller" : ""
+  }
+
+  depends_on = [
+    aws_eks_cluster.this,
+    aws_eks_fargate_profile.this,
+    helm_release.aws_load_balancer_controller
+  ]
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "chmod +x ${self.triggers.script_path} && ${self.triggers.script_path} ${self.triggers.vpc_id} ${self.triggers.cluster_name}"
+
+    environment = {
+      AWS_DEFAULT_REGION = self.triggers.aws_region
+    }
+
+    on_failure = continue
+  }
+
+  # Add a lifecycle block to ensure this runs during destroy phase
+  lifecycle {
+    create_before_destroy = false
+  }
+}
 

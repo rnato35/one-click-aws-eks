@@ -9,6 +9,13 @@ resource "aws_vpc" "this" {
 
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
+
+  # Add timeouts to prevent long waits during destroy
+  timeouts {
+    create = "5m"
+    delete = "5m"
+  }
+
   tags = merge(var.tags, {
     Name = "${var.name}-igw"
   })
@@ -22,8 +29,8 @@ resource "aws_subnet" "public" {
   availability_zone       = each.value.az
   map_public_ip_on_launch = true
   tags = merge(var.tags, {
-    Name = "${var.name}-public-${each.key}"
-    Tier = "public"
+    Name                     = "${var.name}-public-${each.key}"
+    Tier                     = "public"
     "kubernetes.io/role/elb" = "1"
   })
 }
@@ -73,8 +80,8 @@ resource "aws_subnet" "private_app" {
   cidr_block        = each.value.cidr
   availability_zone = each.value.az
   tags = merge(var.tags, {
-    Name = "${var.name}-private-app-${each.key}"
-    Tier = "app"
+    Name                              = "${var.name}-private-app-${each.key}"
+    Tier                              = "app"
     "kubernetes.io/role/internal-elb" = "1"
   })
 }
@@ -170,6 +177,79 @@ resource "aws_flow_log" "this" {
   iam_role_arn         = aws_iam_role.flow[0].arn
   vpc_id               = aws_vpc.this.id
 }
+
+# VPC cleanup resource to handle remaining dependencies during destroy
+resource "null_resource" "vpc_cleanup" {
+  triggers = {
+    vpc_id     = aws_vpc.this.id
+    aws_region = data.aws_region.current.region
+  }
+
+  depends_on = [
+    aws_vpc.this,
+    aws_internet_gateway.this,
+    aws_nat_gateway.this,
+    aws_subnet.public,
+    aws_subnet.private_app,
+    aws_subnet.private_db,
+    aws_route_table.public,
+    aws_route_table.private_app,
+    aws_route_table.private_db
+  ]
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOF
+      # Clean up any remaining AWS Load Balancer Controller security groups
+      echo "Cleaning up remaining security groups in VPC ${self.triggers.vpc_id}..."
+      aws ec2 describe-security-groups \
+        --region "${self.triggers.aws_region}" \
+        --filters "Name=vpc-id,Values=${self.triggers.vpc_id}" \
+        --query "SecurityGroups[?GroupName!='default'].GroupId" \
+        --output text | tr '\t' '\n' | while read -r sg_id; do
+        if [ -n "$sg_id" ]; then
+          echo "Deleting security group: $sg_id"
+          aws ec2 delete-security-group --region "${self.triggers.aws_region}" --group-id "$sg_id" || true
+        fi
+      done
+
+      # Clean up any remaining network interfaces (only unattached ones)
+      echo "Cleaning up remaining unattached network interfaces in VPC ${self.triggers.vpc_id}..."
+      aws ec2 describe-network-interfaces \
+        --region "${self.triggers.aws_region}" \
+        --filters "Name=vpc-id,Values=${self.triggers.vpc_id}" "Name=status,Values=available" \
+        --query "NetworkInterfaces[].NetworkInterfaceId" \
+        --output text | tr '\t' '\n' | while read -r eni_id; do
+        if [ -n "$eni_id" ]; then
+          echo "Deleting unattached network interface: $eni_id"
+          aws ec2 delete-network-interface --region "${self.triggers.aws_region}" --network-interface-id "$eni_id" || true
+        fi
+      done
+
+      # Clean up any VPC endpoints
+      echo "Cleaning up VPC endpoints in VPC ${self.triggers.vpc_id}..."
+      aws ec2 describe-vpc-endpoints \
+        --region "${self.triggers.aws_region}" \
+        --filters "Name=vpc-id,Values=${self.triggers.vpc_id}" \
+        --query "VpcEndpoints[].VpcEndpointId" \
+        --output text | tr '\t' '\n' | while read -r endpoint_id; do
+        if [ -n "$endpoint_id" ]; then
+          echo "Deleting VPC endpoint: $endpoint_id"
+          aws ec2 delete-vpc-endpoint --region "${self.triggers.aws_region}" --vpc-endpoint-id "$endpoint_id" || true
+        fi
+      done
+    EOF
+
+    on_failure = continue
+  }
+
+  lifecycle {
+    create_before_destroy = false
+  }
+}
+
+# Data source for current AWS region
+data "aws_region" "current" {}
 
 # Optional NACLs (basic defaults)
 resource "aws_network_acl" "public" {

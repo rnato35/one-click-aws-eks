@@ -28,6 +28,12 @@ output "kubectl_commands" {
     get_nginx_service  = "kubectl get svc -n apps nginx-sample"
     get_nginx_ingress  = "kubectl get ingress -n apps nginx-sample"
     port_forward_nginx = "kubectl port-forward -n apps svc/nginx-sample 8080:80"
-    nginx_logs        = "kubectl logs -n apps deployment/nginx-sample -f"
+    nginx_logs         = "kubectl logs -n apps deployment/nginx-sample -f"
   }
+}
+
+# Output for cleanup dependency
+output "app_cleanup_id" {
+  description = "ID of the app cleanup resource for dependency management"
+  value       = null_resource.app_cleanup.id
 }

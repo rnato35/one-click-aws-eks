@@ -41,8 +41,8 @@ resource "aws_iam_group_policy" "eks_devops_assume_role" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = "sts:AssumeRole"
+        Effect   = "Allow"
+        Action   = "sts:AssumeRole"
         Resource = aws_iam_role.eks_cluster_admins[0].arn
         Condition = var.require_mfa ? {
           Bool = {
@@ -67,8 +67,8 @@ resource "aws_iam_group_policy" "eks_developers_assume_role" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = "sts:AssumeRole"
+        Effect   = "Allow"
+        Action   = "sts:AssumeRole"
         Resource = aws_iam_role.eks_developers[0].arn
         Condition = var.require_mfa ? {
           Bool = {
@@ -93,8 +93,8 @@ resource "aws_iam_group_policy" "eks_viewers_assume_role" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = "sts:AssumeRole"
+        Effect   = "Allow"
+        Action   = "sts:AssumeRole"
         Resource = aws_iam_role.eks_viewers[0].arn
       }
     ]

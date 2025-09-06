@@ -124,8 +124,8 @@ variable "require_mfa" {
 variable "managed_namespaces" {
   description = "Map of managed namespaces with access configuration"
   type = map(object({
-    labels = optional(map(string), {})
-    annotations = optional(map(string), {})
+    labels           = optional(map(string), {})
+    annotations      = optional(map(string), {})
     developer_access = optional(list(string), [])
   }))
   default = {

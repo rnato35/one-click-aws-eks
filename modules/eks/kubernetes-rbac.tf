@@ -226,7 +226,7 @@ resource "kubernetes_cluster_role_v1" "viewers" {
 
   rule {
     api_groups = ["metrics.k8s.io"]
-    resources = ["*"]
+    resources  = ["*"]
     verbs = [
       "get",
       "list"

@@ -172,9 +172,9 @@ output "managed_namespaces" {
 output "rbac_authentication_guide" {
   description = "Quick reference for authenticating to the cluster"
   value = var.enable_rbac ? {
-    cluster_admin_command = "aws sts assume-role --profile <your-profile> --role-arn ${try(aws_iam_role.eks_cluster_admins[0].arn, "ROLE_NOT_CREATED")} --role-session-name cluster-admin-session"
-    developer_command     = "aws sts assume-role --profile <your-profile> --role-arn ${try(aws_iam_role.eks_developers[0].arn, "ROLE_NOT_CREATED")} --role-session-name developer-session"
-    viewer_command        = "aws sts assume-role --profile <your-profile> --role-arn ${try(aws_iam_role.eks_viewers[0].arn, "ROLE_NOT_CREATED")} --role-session-name viewer-session"
+    cluster_admin_command  = "aws sts assume-role --profile <your-profile> --role-arn ${try(aws_iam_role.eks_cluster_admins[0].arn, "ROLE_NOT_CREATED")} --role-session-name cluster-admin-session"
+    developer_command      = "aws sts assume-role --profile <your-profile> --role-arn ${try(aws_iam_role.eks_developers[0].arn, "ROLE_NOT_CREATED")} --role-session-name developer-session"
+    viewer_command         = "aws sts assume-role --profile <your-profile> --role-arn ${try(aws_iam_role.eks_viewers[0].arn, "ROLE_NOT_CREATED")} --role-session-name viewer-session"
     kubectl_config_command = "aws eks update-kubeconfig --region ${data.aws_region.current.region} --name ${aws_eks_cluster.this.id} --profile <your-profile>"
   } : {}
 }
