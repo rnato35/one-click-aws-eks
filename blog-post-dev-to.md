@@ -1,0 +1,337 @@
+Welcome to the second post in my **One-Click Deployments** series. In the [first post](https://dev.to/rmendoza/-one-click-deployments-1-bootstrap-a-gitops-ready-aws-terraform-backend-with-github-actions-49n2), we built a secure Terraform backend with GitHub OIDC. Now we're taking it further.
+
+In this post, you'll deploy a **complete three-tier architecture with EKS using GitHub Actions**. No more spending hours setting up VPCs, subnets, EKS clusters, load balancers, and applications separately. We use **GitHub Actions + Terraform modules + Helm** to provision everything from network infrastructure to a running nginx website automatically.
+
+---
+
+## What You Get
+
+A single push to `env/dev` triggers GitHub Actions to create:
+
+- **Complete networking stack** across 2 AZs
+  - VPC with public, private app, and private DB subnets
+  - Internet Gateway, NAT Gateway with EIP
+  - Security groups with least-privilege access
+- **Production-ready EKS cluster**
+  - Fargate-only execution (no EC2 node management)
+  - AWS Load Balancer Controller for native ALB integration
+  - Multi-tier RBAC with IAM Groups and roles
+- **Sample nginx website deployed automatically**
+  - Custom HTML showing the architecture diagram
+  - Health check endpoint (`/health`)
+  - Application Load Balancer with public access
+- **Branch-based GitOps workflow** for dev, staging, prod
+
+---
+
+## Why This Matters
+
+Setting up a three-tier architecture with EKS is usually a multi-day process:
+
+1. Create and configure VPC with proper subnets
+2. Set up NAT gateways and route tables
+3. Provision EKS cluster with Fargate profiles
+4. Install and configure AWS Load Balancer Controller
+5. Set up RBAC and IAM role integration
+6. Deploy applications with proper ingress
+7. Configure health checks and monitoring
+8. Wire everything together
+
+This template does it **all in one push** and gives you a working website with a load balancer endpoint, following AWS best practices for security and high availability.
+
+---
+
+## Repository Structure
+```plaintext
+one-click-aws-three-tier-eks/
+├── infra/
+│   └── envs/           # Root stack with environment configs
+├── modules/
+│   ├── network/        # VPC, subnets, NAT, security groups
+│   ├── eks/           # EKS cluster, Fargate, Load Balancer Controller
+│   └── applications/  # Helm chart for nginx sample app
+└── .github/
+    └── workflows/     # GitOps automation (infrastructure + apps)
+```
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                    AWS VPC                                      │
+│                                 (10.0.0.0/16)                                  │
+│                                                                                 │
+│  ┌─────────────────────┐                      ┌─────────────────────┐         │
+│  │   Public Tier       │                      │   Public Tier       │         │
+│  │  (us-east-1a)       │                      │  (us-east-1b)       │         │
+│  │ ┌─────────────────┐ │                      │ ┌─────────────────┐ │         │
+│  │ │ Public Subnet   │ │  ┌─────────────────┐ │ │ Public Subnet   │ │         │
+│  │ │ 10.0.0.0/20     │◄┼──┤ Internet Gateway ├─┤ 10.0.16.0/20    │ │         │
+│  │ └─────────────────┘ │  └─────────────────┘ │ └─────────────────┘ │         │
+│  │         │           │                      │                     │         │
+│  │    ┌────▼────┐      │                      │                     │         │
+│  │    │ ALB     │      │                      │                     │         │
+│  │    │(nginx)  │      │                      │                     │         │
+│  │    └─────────┘      │                      │                     │         │
+│  └─────────────────────┘                      └─────────────────────┘         │
+│              │                                                                 │
+│  ┌───────────▼─────────┐                               ┌─────────────────────┐ │
+│  │   Private App Tier  │                               │   Private App Tier  │ │
+│  │    (us-east-1a)     │                               │    (us-east-1b)     │ │
+│  │ ┌─────────────────┐ │     ┌─────────────────────┐   │ ┌─────────────────┐ │ │
+│  │ │ Private Subnet  │ │     │                     │   │ │ Private Subnet  │ │ │
+│  │ │ 10.0.32.0/20    │ │     │      EKS Cluster    │   │ │ 10.0.48.0/20    │ │ │
+│  │ └─────────────────┘ │     │   (Control Plane)   │   │ └─────────────────┘ │ │
+│  │                     │     │                     │   │                     │ │
+│  │ ┌─────────────────┐ │     │   ┌─────────────┐   │   │ ┌─────────────────┐ │ │
+│  │ │   EKS Fargate   │◄┼─────┼───┤ API Server  │   │   │ │   EKS Fargate   │ │ │
+│  │ │     Pods        │ │     │   └─────────────┘   │   │ │     Pods        │ │ │
+│  │ │                 │ │     └─────────────────────┘   │ │                 │ │ │
+│  │ │ • nginx-sample  │ │                               │ │ • apps namespace│ │ │
+│  │ │ • /architecture │ │                               │ │ • ready for     │ │ │
+│  │ │ • /health       │ │                               │ │   more apps     │ │ │
+│  │ └─────────────────┘ │                               │ └─────────────────┘ │ │
+│  └─────────────────────┘                               └─────────────────────┘ │
+│                                                                                 │
+│  ┌─────────────────────┐                               ┌─────────────────────┐ │
+│  │   Private DB Tier   │                               │   Private DB Tier   │ │
+│  │    (us-east-1a)     │                               │    (us-east-1b)     │ │
+│  │ ┌─────────────────┐ │                               │ ┌─────────────────┐ │ │
+│  │ │ Private Subnet  │ │        (Ready for RDS,        │ │ Private Subnet  │ │ │
+│  │ │ 10.0.64.0/20    │ │         ElastiCache)         │ │ 10.0.80.0/20    │ │ │
+│  │ └─────────────────┘ │                               │ └─────────────────┘ │ │
+│  └─────────────────────┘                               └─────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Prerequisites
+
+**From the first post:**
+- Terraform backend with S3 + DynamoDB
+- GitHub OIDC configured with AWS IAM role
+- GitHub environments (dev, staging, prod) with `AWS_ROLE_ARN` secrets
+
+**Additional requirements:**
+- AWS account with EKS permissions
+- kubectl installed locally (for post-deployment testing)
+
+---
+
+## GitOps Deployment
+
+### 1. Clone and setup branches
+
+```bash
+git clone <your-repo-url>
+cd one-click-aws-three-tier-eks
+
+# Create infrastructure branches
+git checkout -b env/dev && git push -u origin env/dev
+git checkout main && git checkout -b env/staging && git push -u origin env/staging
+git checkout main && git checkout -b env/prod && git push -u origin env/prod
+```
+
+### 2. Configure your environment
+
+```bash
+# Edit dev configuration
+git checkout env/dev
+# Modify infra/envs/dev/terraform.tfvars with your settings:
+# - region = "us-east-1"
+# - nginx_sample_domain_name = "your-domain.com"  
+# - nginx_sample_certificate_arn = "your-acm-cert-arn"
+
+git add . && git commit -m "Configure dev environment"
+git push origin env/dev
+```
+
+### 3. One-click deploy!
+
+GitHub Actions automatically runs `terraform apply` and deploys:
+- Complete networking infrastructure
+- EKS cluster with Fargate profiles  
+- AWS Load Balancer Controller
+- Sample nginx website with ALB
+- IAM Groups and RBAC roles for access control
+
+---
+
+## What Gets Deployed in Detail
+
+### Networking Infrastructure
+- **VPC**: 10.0.0.0/16 with DNS support across 2 AZs
+- **Public subnets**: For load balancers (10.0.0.0/20, 10.0.16.0/20)
+- **Private app subnets**: For EKS workloads (10.0.32.0/20, 10.0.48.0/20)
+- **Private DB subnets**: Ready for databases (10.0.64.0/20, 10.0.80.0/20)
+- **Single NAT Gateway**: Cost-optimized outbound internet access
+- **Security Groups**: Least-privilege firewall rules
+
+### EKS Cluster Components
+- **Managed control plane**: High availability across multiple AZs
+- **Fargate profiles**: For default, kube-system, and apps namespaces
+- **OIDC provider**: For Kubernetes service account authentication
+- **Cluster add-ons**: VPC CNI, CoreDNS, kube-proxy
+- **AWS Load Balancer Controller**: Native integration with ALB/NLB
+- **CloudWatch logging**: API server and audit logs
+
+### Security & RBAC
+- **IAM Groups-based access control**: 
+  - 🔴 **{cluster-name}-eks-devops**: Full cluster admin access
+  - 🟡 **{cluster-name}-eks-developers**: Read/Write in apps namespace, read-only elsewhere
+  - 🟢 **{cluster-name}-eks-viewers**: Read-only cluster access
+- **Assumable IAM roles**: Users in groups can assume roles for cluster access
+- **Service accounts**: For pod-level AWS permissions
+- **Network isolation**: Private subnets with no direct internet access
+
+### Sample Nginx Application
+- **Custom HTML content**: Shows the architecture diagram on the website at `/architecture`
+- **Health endpoint**: `/health` for application monitoring and ALB health checks
+- **Application Load Balancer**: Internet-facing with health checks
+- **Kubernetes resources**:
+  - Deployment with configurable replicas
+  - Service for internal load balancing
+  - Ingress for external access
+  - ConfigMaps for HTML and nginx configuration
+
+---
+
+## Post-Deployment: Access Your Website & Cluster
+
+### 1. Set up cluster access (for admins)
+
+Add your IAM user to the appropriate IAM Group, then:
+
+```bash
+# Assume the cluster admin role
+aws sts assume-role \
+  --role-arn arn:aws:iam::ACCOUNT:role/one-click-dev-eks-cluster-admins \
+  --role-session-name admin-session
+
+# Export the temporary credentials, then configure kubectl
+aws eks update-kubeconfig --name one-click-dev-eks --region us-east-1
+
+# Verify cluster access
+kubectl get nodes
+kubectl get namespaces
+kubectl get pods -n apps
+```
+
+### 2. Access your website
+
+There are **two options** to visualize the nginx sample application:
+
+**Option 1: Public ALB with Custom Domain (Production-ready)**
+1. Configure a certificate and put its ARN in the `nginx_sample_certificate_arn` variable
+2. Set your custom domain in the `nginx_sample_domain_name` variable
+3. Access via your custom domain over HTTPS
+
+**Option 2: Local Port Forwarding (Development/Testing)**
+1. Don't define the certificate and domain variables
+2. Use kubectl port forwarding to access the service locally:
+
+```bash
+# Forward local port to the nginx service
+kubectl port-forward -n apps service/nginx-sample 8080:80
+
+# Visit your website locally
+curl http://localhost:8080/architecture
+curl http://localhost:8080/health
+```
+
+**For Option 1 (Public ALB):**
+```bash
+# Get the load balancer URL
+kubectl get ingress -n apps
+
+# Visit your website
+curl http://<your-alb-dns-name>/architecture
+
+# Test health endpoint
+curl http://<your-alb-dns-name>/health
+```
+
+### 3. Test RBAC with different roles
+
+```bash
+# For developers (namespace-scoped access)
+aws sts assume-role \
+  --role-arn arn:aws:iam::ACCOUNT:role/one-click-dev-eks-developers \
+  --role-session-name dev-session
+
+# Test permissions
+kubectl get pods -n apps              # ✅ Allowed  
+kubectl get nodes                     # ✅ Allowed (read-only)
+kubectl delete namespace kube-system  # ❌ Forbidden
+```
+
+---
+
+## GitOps Flow Explained
+
+### Dual Workflow Architecture
+This project includes **two separate GitHub Actions workflows**:
+
+1. **Infrastructure workflow** (`terraform.yaml`)
+   - Triggered by pushes to `env/dev`, `env/staging`, `env/prod` branches
+   - Manages VPC, EKS cluster, networking components
+   
+2. **Applications workflow** (`applications.yaml`)
+   - Triggered by pushes to `apps/dev`, `apps/staging`, `apps/prod` branches  
+   - Manages Kubernetes applications, services, ingress
+
+### Branch-Based Deployment
+- **Pull requests**: Always run `terraform plan` and post results
+- **Branch pushes**: Run `terraform apply` for target environment
+- **Production protection**: Requires manual approval for prod deployments
+- **OIDC authentication**: No AWS keys stored in GitHub
+
+### Environment Isolation
+Each environment uses:
+- Separate tfvars files (`dev/`, `staging/`, `prod/`)
+- Different cluster names and configurations
+- Isolated AWS resources and namespaces
+- Environment-specific GitHub secrets for `AWS_ROLE_ARN`
+
+### IAM Groups Integration
+- **Automatic creation**: IAM Groups are created for each cluster
+- **User management**: Add IAM users to groups for appropriate access
+- **Role assumption**: Users assume roles based on group membership
+- **MFA support**: Optional MFA requirements for role assumption
+
+---
+
+## Advanced Features
+
+### Cost Optimization
+- **Single NAT Gateway**: ~50% cost reduction vs. multi-AZ NAT
+- **Fargate pricing**: Pay-per-pod, no idle EC2 instances
+- **Resource limits**: Prevent resource waste in containers
+
+### Production Readiness  
+- **Multi-AZ deployment**: High availability by default
+- **Health checks**: Application-aware load balancer probes
+- **Auto scaling**: Horizontal Pod Autoscaler ready
+- **Monitoring**: CloudWatch integration ready for extension
+
+### Extensibility
+- **Database-ready**: Private DB subnets for RDS/ElastiCache
+- **Modular design**: Add applications via additional Helm charts
+- **RBAC foundation**: Easy to add users to IAM Groups
+- **Monitoring ready**: Foundation for Prometheus, Grafana, ELK stack
+
+---
+
+## Call to Action
+
+Deploy your own three-tier architecture with **one push**:
+[GitHub Repository](https://github.com/rnato35/one-click-aws-three-tier-eks)
+
+This builds perfectly on the secure backend from [post #1](https://dev.to/rmendoza/-one-click-deployments-1-bootstrap-a-gitops-ready-aws-terraform-backend-with-github-actions-49n2). Together, they give you a complete, production-ready AWS foundation with GitOps workflows and zero manual setup.
+
+---
+
+*What would you like to see deployed with one click next? Drop a comment below!*

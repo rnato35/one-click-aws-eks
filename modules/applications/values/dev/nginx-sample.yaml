@@ -65,20 +65,13 @@ readinessProbe:
   timeoutSeconds: 3
   failureThreshold: 3
 
-# Enable nginx status page for development debugging
+# Nginx configuration (status page disabled)
 nginx:
   statusPage:
-    enabled: true
-    allowFrom:
-      - 10.0.0.0/8
-      - 172.16.0.0/12
-      - 192.168.0.0/16
+    enabled: false
 
 # Development specific annotations
-podAnnotations:
-  prometheus.io/scrape: "true"
-  prometheus.io/port: "8080"
-  prometheus.io/path: "/nginx-status"
+podAnnotations: {}
 
 # Node selection for development
 nodeSelector:
