@@ -151,12 +151,10 @@ git push origin env/dev
 
 ### 3. One-click deploy!
 
-GitHub Actions automatically runs `terraform apply` and deploys:
-- Complete networking infrastructure
-- EKS cluster with Fargate profiles  
-- AWS Load Balancer Controller
-- Sample nginx website with ALB
-- IAM Groups and RBAC roles for access control
+GitHub Actions automatically runs the unified deployment workflow:
+- **Infrastructure phase**: Complete networking, EKS cluster, Load Balancer Controller
+- **Applications phase**: nginx sample app with ingress and load balancer
+- **All in one workflow**: No need to manage separate deployments
 
 ---
 
@@ -272,22 +270,23 @@ kubectl delete namespace kube-system  # ❌ Forbidden
 
 ## GitOps Flow Explained
 
-### Dual Workflow Architecture
-This project includes **two separate GitHub Actions workflows**:
+### Unified Deployment Workflow
+This project uses **a single GitHub Actions workflow** (`deploy.yaml`) that handles everything:
 
-1. **Infrastructure workflow** (`terraform.yaml`)
-   - Triggered by pushes to `env/dev`, `env/staging`, `env/prod` branches
-   - Manages VPC, EKS cluster, networking components
+1. **Infrastructure deployment**
+   - VPC, subnets, EKS cluster, load balancer controller
+   - Triggered by changes to `infra/envs/**` or `modules/**`
    
-2. **Applications workflow** (`applications.yaml`)
-   - Triggered by pushes to `apps/dev`, `apps/staging`, `apps/prod` branches  
-   - Manages Kubernetes applications, services, ingress
+2. **Applications deployment**
+   - nginx sample app and all Kubernetes resources
+   - Deployed automatically after infrastructure is ready
 
 ### Branch-Based Deployment
-- **Pull requests**: Always run `terraform plan` and post results
-- **Branch pushes**: Run `terraform apply` for target environment
-- **Production protection**: Requires manual approval for prod deployments
+- **Pull requests**: Run unified plan for both infrastructure and applications
+- **Branch pushes**: Deploy complete stack (infrastructure + applications)
+- **Production protection**: Manual approval required for prod deployments
 - **OIDC authentication**: No AWS keys stored in GitHub
+- **Sequential deployment**: Infrastructure first, then applications automatically
 
 ### Environment Isolation
 Each environment uses:
