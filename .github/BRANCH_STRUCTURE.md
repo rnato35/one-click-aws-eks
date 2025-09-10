@@ -1,77 +1,68 @@
-# GitOps Branch Structure
+# Repository Structure
 
-This repository follows a GitOps approach with separate branch hierarchies for infrastructure and applications.
+This repository supports manual deployment with environment-specific configurations for infrastructure and applications.
 
-## Branch Naming Convention
+## Environment Configuration
 
-### Infrastructure Branches
-- `env/dev` - Development infrastructure
-- `env/staging` - Staging infrastructure  
-- `env/prod` - Production infrastructure
+### Infrastructure Environments
+- `infra/envs/dev/` - Development infrastructure configuration
+- `infra/envs/staging/` - Staging infrastructure configuration
+- `infra/envs/prod/` - Production infrastructure configuration
 
-### Application Branches
-- `apps/dev` - Development applications
-- `apps/staging` - Staging applications
-- `apps/prod` - Production applications
+### Application Environments
+- `modules/applications/values/dev/` - Development application values
+- `modules/applications/values/staging/` - Staging application values
+- `modules/applications/values/prod/` - Production application values
 
 ## Initial Setup Commands
 
-After cloning the repository, create the GitOps branches:
+After cloning the repository, configure your environment:
 
 ```bash
-# Create infrastructure branches (if not already created)
-git checkout -b env/dev
-git push -u origin env/dev
+# Clone the repository
+git clone <your-repo>
+cd one-click-aws-three-tier-foundation
 
-git checkout -b env/staging  
-git push -u origin env/staging
+# Configure AWS CLI (if not already done)
+aws configure
 
-git checkout -b env/prod
-git push -u origin env/prod
-
-# Create application branches
-git checkout main
-git checkout -b apps/dev
-git push -u origin apps/dev
-
-git checkout main
-git checkout -b apps/staging
-git push -u origin apps/staging
-
-git checkout main  
-git checkout -b apps/prod
-git push -u origin apps/prod
+# Install required tools
+# - Terraform
+# - kubectl
+# - Helm
+# - AWS CLI
 ```
 
-## Workflow Triggers
+## Manual Deployment Process
 
-### Infrastructure Changes (`terraform.yaml`)
-- **Paths**: `infra/envs/**`, `modules/**`, `.github/workflows/terraform.yaml`
-- **Branches**: `env/dev`, `env/staging`, `env/prod`
+### Infrastructure Changes
+- **Configuration**: Edit files in `infra/envs/**` or `modules/**`
+- **Deployment**: Use terraform commands with appropriate environment configs
+- **Environments**: dev, staging, prod
 
-### Application Changes (`applications.yaml`)
-- **Paths**: `k8s/**`, `.github/workflows/applications.yaml`  
-- **Branches**: `apps/dev`, `apps/staging`, `apps/prod`
+### Application Changes
+- **Configuration**: Edit files in `modules/applications/**`
+- **Deployment**: Use terraform/helm commands for application deployment
+- **Environments**: dev, staging, prod
 
-## Deployment Process
+## Deployment Workflow
 
 ### Infrastructure Deployment
-1. Make changes to `infra/` or `modules/`
-2. Create PR against `env/dev` → triggers plan
-3. Merge PR → triggers apply to dev
-4. Promote to staging/prod as needed
+1. Edit configuration files in `infra/envs/{env}/terraform.tfvars`
+2. Run `terraform plan` to review changes
+3. Run `terraform apply` to deploy changes
+4. Repeat for other environments as needed
 
-### Application Deployment  
-1. Make changes to `k8s/`
-2. Create PR against `apps/dev` → triggers plan
-3. Merge PR → triggers apply to dev
-4. Promote to staging/prod as needed
+### Application Deployment
+1. Edit application configurations in `modules/applications/`
+2. Run `terraform plan` to review changes
+3. Run `terraform apply` to deploy applications
+4. Repeat for other environments as needed
 
-## Branch Protection (Recommended)
+## Best Practices
 
-Configure these branch protection rules in GitHub:
-
-- **Require pull request reviews** before merging
-- **Require status checks** to pass (terraform plan)
-- **Require branches to be up to date** before merging
-- **Restrict pushes** to protect production branches
+- **Environment Isolation**: Use terraform workspaces to separate environments
+- **State Management**: Store terraform state in S3 with DynamoDB locking
+- **Security**: Use least-privilege IAM roles and policies
+- **Testing**: Always run `terraform plan` before applying changes
+- **Documentation**: Keep environment-specific notes and configurations updated

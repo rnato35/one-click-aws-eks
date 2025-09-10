@@ -1,12 +1,12 @@
-Welcome to the second post in my **One-Click Deployments** series. In the [first post](https://dev.to/rmendoza/-one-click-deployments-1-bootstrap-a-gitops-ready-aws-terraform-backend-with-github-actions-49n2), we built a secure Terraform backend with GitHub OIDC. Now we're taking it further.
+Welcome to my **One-Click AWS Deployments** post. This is a complete guide to deploying a three-tier architecture with EKS using Terraform.
 
-In this post, you'll deploy a **complete three-tier architecture with EKS using GitHub Actions**. No more spending hours setting up VPCs, subnets, EKS clusters, load balancers, and applications separately. We use **GitHub Actions + Terraform modules + Helm** to provision everything from network infrastructure to a running nginx website automatically.
+In this post, you'll deploy a **complete three-tier architecture with EKS using Terraform**. No more spending hours setting up VPCs, subnets, EKS clusters, load balancers, and applications separately. We use **Terraform modules + Helm** to provision everything from network infrastructure to a running nginx website automatically.
 
 ---
 
 ## What You Get
 
-A single push to `env/dev` triggers GitHub Actions to create:
+A single `terraform apply` command creates:
 
 - **Complete networking stack** across 2 AZs
   - VPC with public, private app, and private DB subnets
@@ -20,7 +20,7 @@ A single push to `env/dev` triggers GitHub Actions to create:
   - Custom HTML showing the architecture diagram
   - Health check endpoint (`/health`)
   - Application Load Balancer with public access
-- **Branch-based GitOps workflow** for dev, staging, prod
+- **Multi-environment support** for dev, staging, prod
 
 ---
 
@@ -37,7 +37,7 @@ Setting up a three-tier architecture with EKS is usually a multi-day process:
 7. Configure health checks and monitoring
 8. Wire everything together
 
-This template does it **all in one push** and gives you a working website with a load balancer endpoint, following AWS best practices for security and high availability.
+This template does it **all in one command** and gives you a working website with a load balancer endpoint, following AWS best practices for security and high availability.
 
 ---
 
@@ -50,8 +50,7 @@ one-click-aws-three-tier-eks/
 │   ├── network/        # VPC, subnets, NAT, security groups
 │   ├── eks/           # EKS cluster, Fargate, Load Balancer Controller
 │   └── applications/  # Helm chart for nginx sample app
-└── .github/
-    └── workflows/     # GitOps automation (infrastructure + apps)
+└── docs/           # Documentation and guides
 ```
 
 ---
@@ -110,51 +109,57 @@ one-click-aws-three-tier-eks/
 
 ## Prerequisites
 
-**From the first post:**
-- Terraform backend with S3 + DynamoDB
-- GitHub OIDC configured with AWS IAM role
-- GitHub environments (dev, staging, prod) with `AWS_ROLE_ARN` secrets
-
-**Additional requirements:**
+**Required setup:**
 - AWS account with EKS permissions
+- Terraform installed locally
 - kubectl installed locally (for post-deployment testing)
+- AWS CLI configured with appropriate credentials
+- Terraform backend with S3 + DynamoDB (optional but recommended)
 
 ---
 
-## GitOps Deployment
+## Manual Deployment
 
-### 1. Clone and setup branches
+### 1. Clone and setup
 
 ```bash
 git clone <your-repo-url>
 cd one-click-aws-three-tier-eks
-
-# Create infrastructure branches
-git checkout -b env/dev && git push -u origin env/dev
-git checkout main && git checkout -b env/staging && git push -u origin env/staging
-git checkout main && git checkout -b env/prod && git push -u origin env/prod
 ```
 
 ### 2. Configure your environment
 
 ```bash
 # Edit dev configuration
-git checkout env/dev
 # Modify infra/envs/dev/terraform.tfvars with your settings:
 # - region = "us-east-1"
 # - nginx_sample_domain_name = "your-domain.com"  
 # - nginx_sample_certificate_arn = "your-acm-cert-arn"
-
-git add . && git commit -m "Configure dev environment"
-git push origin env/dev
 ```
 
-### 3. One-click deploy!
+### 3. Deploy with Terraform
 
-GitHub Actions automatically runs the unified deployment workflow:
+```bash
+# Navigate to infrastructure directory
+cd infra/envs
+
+# Initialize Terraform
+terraform init
+
+# Create workspace for environment isolation
+terraform workspace new dev
+
+# Plan the deployment
+terraform plan -var-file="dev/terraform.tfvars"
+
+# Deploy everything
+terraform apply -var-file="dev/terraform.tfvars"
+```
+
+Terraform automatically runs the unified deployment:
 - **Infrastructure phase**: Complete networking, EKS cluster, Load Balancer Controller
 - **Applications phase**: nginx sample app with ingress and load balancer
-- **All in one workflow**: No need to manage separate deployments
+- **All in one configuration**: No need to manage separate deployments
 
 ---
 
@@ -268,24 +273,22 @@ kubectl delete namespace kube-system  # ❌ Forbidden
 
 ---
 
-## GitOps Flow Explained
+## Deployment Process Explained
 
-### Unified Deployment Workflow
-This project uses **a single GitHub Actions workflow** (`deploy.yaml`) that handles everything:
+### Unified Deployment Process
+This project uses **a single Terraform configuration** that handles everything:
 
 1. **Infrastructure deployment**
    - VPC, subnets, EKS cluster, load balancer controller
-   - Triggered by changes to `infra/envs/**` or `modules/**`
+   - All networking components and security groups
    
 2. **Applications deployment**
    - nginx sample app and all Kubernetes resources
    - Deployed automatically after infrastructure is ready
 
-### Branch-Based Deployment
-- **Pull requests**: Run unified plan for both infrastructure and applications
-- **Branch pushes**: Deploy complete stack (infrastructure + applications)
-- **Production protection**: Manual approval required for prod deployments
-- **OIDC authentication**: No AWS keys stored in GitHub
+### Environment Management
+- **Terraform workspaces**: Isolate state for different environments
+- **Separate tfvars files**: Environment-specific configurations
 - **Sequential deployment**: Infrastructure first, then applications automatically
 
 ### Environment Isolation
@@ -293,7 +296,7 @@ Each environment uses:
 - Separate tfvars files (`dev/`, `staging/`, `prod/`)
 - Different cluster names and configurations
 - Isolated AWS resources and namespaces
-- Environment-specific GitHub secrets for `AWS_ROLE_ARN`
+- Terraform workspace isolation
 
 ### IAM Groups Integration
 - **Automatic creation**: IAM Groups are created for each cluster
@@ -326,10 +329,10 @@ Each environment uses:
 
 ## Call to Action
 
-Deploy your own three-tier architecture with **one push**:
+Deploy your own three-tier architecture with **one command**:
 [GitHub Repository](https://github.com/rnato35/one-click-aws-three-tier-eks)
 
-This builds perfectly on the secure backend from [post #1](https://dev.to/rmendoza/-one-click-deployments-1-bootstrap-a-gitops-ready-aws-terraform-backend-with-github-actions-49n2). Together, they give you a complete, production-ready AWS foundation with GitOps workflows and zero manual setup.
+This gives you a complete, production-ready AWS foundation with automated infrastructure provisioning and application deployment through Terraform.
 
 ---
 

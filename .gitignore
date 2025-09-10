@@ -54,3 +54,6 @@ Thumbs.db
 
 # Claude Code documentation
 CLAUDE.md
+
+# Blog posts and drafts
+blog-post-*.md

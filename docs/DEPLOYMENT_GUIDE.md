@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide covers the complete deployment process using GitOps methodology.
+This guide covers the complete deployment process using manual deployment.
 
 ## Prerequisites
 
@@ -11,49 +11,19 @@ This guide covers the complete deployment process using GitOps methodology.
 - **KMS Key** for state encryption
 - **IAM Role** for GitHub OIDC authentication
 
-### 2. GitHub Setup
-- **Repository** with this code
-- **GitHub Environments**: dev, staging, prod
-- **Secrets** configured in each environment:
-  - `AWS_ROLE_ARN`: IAM role ARN for OIDC
-- **Variables** configured at repository level:
-  - `TF_BACKEND_BUCKET`: S3 bucket name
-  - `TF_BACKEND_REGION`: AWS region
-  - `TF_BACKEND_DDB_TABLE`: DynamoDB table name
-  - `TF_BACKEND_KMS_KEY_ID`: KMS key ID/ARN
+### 2. Local Setup
+- **Terraform** installed locally
+- **kubectl** installed and configured
+- **AWS CLI** configured with appropriate credentials
+- **Helm** installed for application deployment
 
-## GitOps Branch Setup
+## Repository Setup
 
-### Initial Branch Creation
+### Clone Repository
 ```bash
 # Clone repository
 git clone <your-repo>
 cd one-click-aws-three-tier-foundation
-
-# Create infrastructure branches
-git checkout -b env/dev
-git push -u origin env/dev
-
-git checkout main
-git checkout -b env/staging
-git push -u origin env/staging
-
-git checkout main
-git checkout -b env/prod
-git push -u origin env/prod
-
-# Create application branches
-git checkout main
-git checkout -b apps/dev
-git push -u origin apps/dev
-
-git checkout main
-git checkout -b apps/staging
-git push -u origin apps/staging
-
-git checkout main
-git checkout -b apps/prod
-git push -u origin apps/prod
 ```
 
 ## Deployment Process
@@ -103,18 +73,26 @@ eks_require_mfa = false  # Set to true for production
 
 #### 2. Deploy Infrastructure
 ```bash
-git add .
-git commit -m "Configure dev environment infrastructure"
-git push origin env/dev
+# Initialize Terraform
+cd infra/envs
+terraform init -backend-config="bucket=YOUR_BUCKET" -backend-config="region=YOUR_REGION" -backend-config="dynamodb_table=YOUR_TABLE"
+
+# Create workspace for environment
+terraform workspace new dev || terraform workspace select dev
+
+# Plan deployment
+terraform plan -var-file="dev/terraform.tfvars"
+
+# Apply deployment
+terraform apply -var-file="dev/terraform.tfvars"
 ```
 
 **What happens:**
-- GitHub Actions triggers `terraform.yaml` workflow
 - Terraform deploys VPC, EKS cluster, networking
 - Takes ~15-20 minutes for complete EKS cluster creation
 
 #### 3. Verify Infrastructure
-Monitor the GitHub Actions workflow to ensure successful deployment.
+Check the Terraform outputs to ensure successful deployment.
 
 #### 4. Configure Cluster Access
 After successful deployment, configure access to the EKS cluster:
@@ -146,15 +124,22 @@ git checkout apps/dev
 
 #### 2. Deploy Applications
 ```bash
-git add .
-git commit -m "Deploy observability test application"
-git push origin apps/dev
+# Navigate to applications directory
+cd ../../modules/applications
+
+# Initialize Terraform
+terraform init -backend-config="bucket=YOUR_BUCKET" -backend-config="region=YOUR_REGION" -backend-config="dynamodb_table=YOUR_TABLE"
+
+# Create workspace for environment
+terraform workspace new dev || terraform workspace select dev
+
+# Deploy applications
+terraform apply -var="cluster_name=one-click-dev-eks" -var="region=us-east-1"
 ```
 
 **What happens:**
-- GitHub Actions triggers `applications.yaml` workflow
 - Terraform deploys Helm charts to EKS cluster
-- Creates observability test app in `apps` namespace
+- Creates sample app in `apps` namespace
 - Fixes CoreDNS issue by triggering Fargate node provisioning
 
 #### 3. Verify Applications
@@ -172,156 +157,105 @@ helm list -A
 kubectl logs -n apps -l app=observability-test
 ```
 
-## GitOps Workflow Examples
+## Manual Deployment Workflow Examples
 
 ### Making Infrastructure Changes
 
-#### Option 1: Pull Request Workflow
+#### Infrastructure Changes
 ```bash
-# Create feature branch from env/dev
-git checkout env/dev
-git pull origin env/dev
-git checkout -b feature/increase-cluster-size
-
-# Make changes
+# Make changes to configuration
 # Edit infra/envs/dev/terraform.tfvars
 # Change cluster settings, add new resources, etc.
 
-# Commit and push
-git add .
-git commit -m "Increase EKS cluster resources"
-git push origin feature/increase-cluster-size
+# Plan changes
+cd infra/envs
+terraform workspace select dev
+terraform plan -var-file="dev/terraform.tfvars"
 
-# Create PR against env/dev
-# GitHub will automatically run terraform plan
-# Review plan output in PR comments
-# Merge PR to trigger terraform apply
+# Apply changes
+terraform apply -var-file="dev/terraform.tfvars"
 ```
 
-#### Option 2: Direct Push (Dev Only)
-```bash
-git checkout env/dev
-# Make changes directly
-git add .
-git commit -m "Update dev configuration"
-git push origin env/dev
-# Triggers immediate deployment
-```
 
 ### Making Application Changes
 
 #### Update Application Configuration
 ```bash
-# Create feature branch
-git checkout apps/dev
-git pull origin apps/dev
-git checkout -b feature/update-app-config
-
 # Update Helm values
-# Edit k8s/environments/dev/values.yaml
-# Edit k8s/apps/observability-test/values.yaml
+# Edit modules/applications/values/dev/nginx-sample.yaml
 
-# Commit and push
-git add .
-git commit -m "Update observability app configuration"
-git push origin feature/update-app-config
+# Plan changes
+cd modules/applications
+terraform workspace select dev
+terraform plan -var="cluster_name=one-click-dev-eks" -var="region=us-east-1"
 
-# Create PR against apps/dev
-# Review plan output
-# Merge to deploy
+# Apply changes
+terraform apply -var="cluster_name=one-click-dev-eks" -var="region=us-east-1"
 ```
 
 #### Add New Application
 ```bash
-# Create new app structure
-mkdir -p k8s/apps/my-new-app
+# Create new Helm chart structure
+mkdir -p modules/applications/charts/my-new-app
 
 # Create values.yaml
-cat > k8s/apps/my-new-app/values.yaml << EOF
+cat > modules/applications/values/dev/my-new-app.yaml << EOF
 replicaCount: 1
 image:
   repository: nginx
   tag: latest
 EOF
 
-# Update environment Terraform
-# Edit k8s/environments/dev/main.tf
+# Update applications Terraform
+# Edit modules/applications/main.tf
 # Add new helm_release resource
 
-# Commit and deploy
-git add .
-git commit -m "Add new application"
-git push origin apps/dev
+# Apply changes
+cd modules/applications
+terraform apply -var="cluster_name=one-click-dev-eks" -var="region=us-east-1"
 ```
 
 ## Environment Promotion
 
 ### Promote Infrastructure: Dev → Staging
 ```bash
-# Create PR from env/dev to env/staging
-git checkout env/staging
-git pull origin env/staging
-git checkout -b promote/dev-to-staging
-
-# Merge dev changes
-git merge env/dev
+# Copy dev configuration as base for staging
+cp infra/envs/dev/terraform.tfvars infra/envs/staging/terraform.tfvars
 
 # Update staging-specific configs
 # Edit infra/envs/staging/terraform.tfvars
 # Adjust for staging environment (larger resources, etc.)
 
-# Commit and create PR
-git add .
-git commit -m "Promote dev changes to staging"
-git push origin promote/dev-to-staging
-
-# Create PR against env/staging
-# Review and merge
+# Deploy to staging
+cd infra/envs
+terraform workspace new staging || terraform workspace select staging
+terraform plan -var-file="staging/terraform.tfvars"
+terraform apply -var-file="staging/terraform.tfvars"
 ```
 
 ### Promote Applications: Dev → Staging
 ```bash
-# Similar process for applications
-git checkout apps/staging
-git pull origin apps/staging
-git checkout -b promote/apps-dev-to-staging
-
-git merge apps/dev
-
-# Update staging values
-# Edit k8s/environments/staging/values.yaml
-
-git add .
-git commit -m "Promote applications to staging"
-git push origin promote/apps-dev-to-staging
-
-# Create PR and merge
+# Deploy applications to staging
+cd modules/applications
+terraform workspace new staging || terraform workspace select staging
+terraform apply -var="cluster_name=one-click-staging-eks" -var="region=us-east-1"
 ```
 
-## Manual Deployments
-
-### Using GitHub Actions UI
-1. Go to **GitHub Actions** tab
-2. Select workflow:
-   - **terraform** for infrastructure
-   - **applications** for apps
-3. Click **"Run workflow"**
-4. Select:
-   - **Environment**: dev/staging/prod
-   - **Action**: plan/apply
-5. Click **"Run workflow"**
-
-### Emergency Deployments
-For urgent fixes, use manual triggers:
+## Emergency Deployments
+For urgent fixes, deploy directly:
 ```bash
-# Make urgent fix on main branch
-git checkout main
-# Make fix
-git add . && git commit -m "Urgent fix"
-git push origin main
+# Make urgent fix
+# Edit configuration files as needed
 
-# Deploy via GitHub Actions manual trigger
-# Select environment and apply
+# Deploy infrastructure fix
+cd infra/envs
+terraform workspace select <environment>
+terraform apply -var-file="<environment>/terraform.tfvars"
+
+# Deploy application fix
+cd ../../modules/applications
+terraform workspace select <environment>
+terraform apply -var="cluster_name=one-click-<environment>-eks" -var="region=us-east-1"
 ```
 
 ## Troubleshooting
@@ -348,9 +282,17 @@ git push origin main
 
 #### Reset Environment
 ```bash
-# Use destroy workflow (manual trigger)
-# Select environment and confirm destruction
-# Redeploy infrastructure and applications
+# Destroy applications first
+cd modules/applications
+terraform workspace select <environment>
+terraform destroy -var="cluster_name=one-click-<environment>-eks" -var="region=us-east-1"
+
+# Destroy infrastructure
+cd ../../infra/envs
+terraform workspace select <environment>
+terraform destroy -var-file="<environment>/terraform.tfvars"
+
+# Redeploy as needed
 ```
 
 #### Force Unlock State

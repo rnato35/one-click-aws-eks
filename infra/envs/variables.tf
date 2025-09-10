@@ -4,7 +4,7 @@ variable "region" {
 }
 
 variable "aws_profile" {
-  description = "AWS profile to use for authentication (leave empty for GitHub Actions)"
+  description = "AWS profile to use for authentication (leave empty for default profile)"
   type        = string
   default     = ""
 }

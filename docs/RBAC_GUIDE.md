@@ -105,7 +105,7 @@ graph TB
 **Purpose**: Automated deployment and CI/CD operations
 
 **Who Should Use**:
-- CI/CD systems (GitHub Actions, GitLab CI, Jenkins)
+- CI/CD systems (GitLab CI, Jenkins)
 - GitOps operators (ArgoCD, Flux)
 - Automation scripts
 

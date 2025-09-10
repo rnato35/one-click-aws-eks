@@ -1,6 +1,6 @@
 # Local Terraform Commands
 
-This file contains the correct commands to run Terraform locally, ensuring state file compatibility with GitHub Actions.
+This file contains the correct commands to run Terraform locally for manual deployment.
 
 ## Initial Setup
 
@@ -41,13 +41,14 @@ terraform workspace list
 ## State File Locations
 
 With the workspace configuration:
-- **Local & GitHub Actions**: `<bucket>/envs/{workspace}/global/terraform.tfstate`
+- **State files**: `<bucket>/envs/{workspace}/global/terraform.tfstate`
 - **dev workspace**: `<bucket>/envs/dev/global/terraform.tfstate`
 - **staging workspace**: `<bucket>/envs/staging/global/terraform.tfstate`
 - **prod workspace**: `<bucket>/envs/prod/global/terraform.tfstate`
 
 ## Important Notes
 
-1. **Always use workspaces locally** - this ensures state file compatibility with GitHub Actions
+1. **Always use workspaces** - this ensures proper environment isolation
 2. **Check your workspace** before running any Terraform commands with `terraform workspace show`
-3. **Use the same tfvars file** as the environment you're working on (dev/staging/prod)
+3. **Use the correct tfvars file** for the environment you're working on (dev/staging/prod)
+4. **Backend configuration** should match your S3 bucket, DynamoDB table, and KMS key setup

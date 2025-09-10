@@ -125,51 +125,8 @@ Complete Terraform solution for AWS three-tier architecture with EKS: VPC networ
 
 1. **AWS Account** with appropriate permissions
 2. **S3 Bucket & DynamoDB Table** for Terraform backend
-3. **GitHub OIDC** configured with AWS IAM role
-4. **GitHub Environments** (dev, staging, prod) with secrets
 
-### Option 1: GitOps Deployment (Recommended)
-
-#### Step 1: Setup GitOps Branches
-
-```bash
-# Clone the repository
-git clone <your-repo-url>
-cd one-click-aws-three-tier-foundation
-
-# Create infrastructure branches  
-git checkout -b env/dev && git push -u origin env/dev
-git checkout main && git checkout -b env/staging && git push -u origin env/staging
-git checkout main && git checkout -b env/prod && git push -u origin env/prod
-
-# Create application branches
-git checkout main && git checkout -b apps/dev && git push -u origin apps/dev
-git checkout main && git checkout -b apps/staging && git push -u origin apps/staging  
-git checkout main && git checkout -b apps/prod && git push -u origin apps/prod
-```
-
-#### Step 2: Deploy Infrastructure
-
-```bash
-# Make infrastructure changes
-git checkout env/dev
-# Edit infra/envs/dev/terraform.tfvars with your settings
-git add . && git commit -m "Configure dev environment"
-git push origin env/dev
-# GitHub Actions will automatically deploy infrastructure
-```
-
-#### Step 3: Deploy Applications
-
-```bash
-# Deploy applications
-git checkout apps/dev
-git add . && git commit -m "Deploy observability test app"
-git push origin apps/dev  
-# GitHub Actions will automatically deploy applications
-```
-
-### Option 2: Manual Deployment
+### Manual Deployment
 
 #### Infrastructure
 
@@ -187,13 +144,6 @@ terraform init -backend-config="bucket=YOUR_BUCKET" # ... other backend configs
 terraform apply -var="cluster_name=one-click-dev-eks"
 ```
 
-### Option 3: Manual Triggers (GitHub UI)
-
-1. Go to **GitHub Actions** tab
-2. Select **terraform** or **applications** workflow
-3. Click **"Run workflow"**
-4. Choose environment and action
-5. Deploy with one click! 🚀
 
 ## Post-Deployment
 
@@ -254,22 +204,16 @@ curl http://localhost:9113/metrics
 - 🔐 [RBAC Configuration Guide](./docs/RBAC_GUIDE.md)
 - 🐛 [Troubleshooting Guide](./docs/TROUBLESHOOTING.md)
 
-## GitOps Workflow
+## Manual Deployment Workflow
 
-### Infrastructure Changes
+### Infrastructure Deployment
 
-1. **Create PR** against `env/dev` → Triggers terraform plan
-2. **Merge PR** → Triggers terraform apply to dev
-3. **Promote** to staging/prod by creating PRs against respective branches
+1. **Configure environment**: Edit `infra/envs/{env}/terraform.tfvars` with your settings
+2. **Deploy infrastructure**: Run terraform commands manually
+3. **Promote** to other environments by repeating with different environment configs
 
-### Application Changes
+### Application Deployment
 
-1. **Create PR** against `apps/dev` → Triggers terraform plan
-2. **Merge PR** → Triggers terraform apply to dev
-3. **Promote** to staging/prod by creating PRs against respective branches
-
-### Manual Deployments
-
-- **Infrastructure**: Use **terraform** workflow with manual trigger
-- **Applications**: Use **applications** workflow with manual trigger
-- **Available for all environments**: dev, staging, prod
+1. **Configure applications**: Edit application manifests and charts
+2. **Deploy applications**: Run terraform or helm commands manually
+3. **Promote** to other environments by repeating with different environment configs

@@ -1,71 +1,85 @@
-# GitOps: Multi-Environment Terraform via GitHub Actions
+# Multi-Environment Terraform Deployment Guide
 
-This repo is configured for GitOps with separate workflows for infrastructure and applications across three environments: dev, staging, prod.
+This repo supports manual multi-environment deployments for infrastructure and applications across three environments: dev, staging, prod.
 
-## Branch Strategy
+## Environment Strategy
 
 ### Infrastructure Deployment
-- **Branches**: `env/dev`, `env/staging`, `env/prod`
-- **Triggers**: Changes to `infra/envs/**`, `modules/**`
-- **Workflow**: `.github/workflows/terraform.yaml`
+- **Environments**: dev, staging, prod
+- **Configuration**: `infra/envs/{env}/terraform.tfvars`
+- **Deployment**: Manual terraform commands with workspace isolation
 
 ### Application Deployment  
-- **Branches**: `apps/dev`, `apps/staging`, `apps/prod`
-- **Triggers**: Changes to `k8s/**`
-- **Workflow**: `.github/workflows/applications.yaml`
+- **Environments**: dev, staging, prod
+- **Configuration**: Environment-specific values in modules
+- **Deployment**: Manual terraform/helm commands
 
-## Workflow Behavior
-- **Pull requests** run `terraform plan` for visibility
-- **Merges** to environment branches run `terraform apply`
-- **Manual triggers** available for dev environment deployments
-- **Authentication** uses GitHub OIDC to assume AWS IAM Role; no long-lived secrets
+## Deployment Process
+- **Plan** changes using `terraform plan` for visibility
+- **Apply** changes using `terraform apply` for deployment
+- **Workspace isolation** for environment separation
+- **Authentication** uses AWS CLI profiles or IAM roles
 
-## Required setup
+## Required Setup
 
-1. AWS IAM Role for OIDC
-   - Create an IAM Role with a trust policy for GitHub OIDC (issuer: `token.actions.githubusercontent.com`).
-   - Allow `sts:AssumeRoleWithWebIdentity` with conditions for:
-     - Your org/repo (`repo:<owner>/<repo>:*`) or explicitly limit by branches.
-   - Attach a policy with least privileges for your infrastructure and state bucket/table.
-   - Store the role ARN as a GitHub secret in each Environment:
-     - Environments: dev, staging, prod
-     - Secret name: `AWS_ROLE_ARN`
+1. **AWS Authentication**
+   - Configure AWS CLI with appropriate credentials
+   - Ensure IAM permissions for:
+     - VPC, EKS, EC2 resources
+     - S3 bucket access for state storage
+     - DynamoDB table access for state locking
+     - KMS key usage for encryption
 
-2. Backend variables as repository-level Variables (`Settings > Secrets and variables > Actions > Variables`):
-   - `TF_BACKEND_BUCKET` — S3 bucket name
-   - `TF_BACKEND_REGION` — Region
-   - `TF_BACKEND_DDB_TABLE` — DynamoDB lock table name
-   - `TF_BACKEND_KMS_KEY_ID` — KMS key ARN or alias
+2. **Backend Configuration**
+   - S3 bucket for Terraform state storage
+   - DynamoDB table for state locking
+   - KMS key for state encryption
+   - Update backend configuration in terraform init commands
 
-3. GitHub Environments
-   - Create environments: dev, staging, prod.
-   - Optionally add reviewers to require approvals before apply.
-   - Add the secret `AWS_ROLE_ARN` in each environment.
+3. **Local Tools**
+   - Terraform installed and configured
+   - kubectl installed for cluster access
+   - Helm installed for application deployment
+   - AWS CLI configured with proper profile
 
-## Workflow
+## Deployment Workflow
 
-### Infrastructure Workflow (`terraform.yaml`)
-- **PRs to `env/*`**: Run `terraform plan` for infrastructure changes
-- **Push to `env/*`**: Run `terraform apply` for infrastructure deployment
-- **Manual triggers**: Available for all environments (dev, staging, prod)
+### Infrastructure Deployment
+- **Plan**: Run `terraform plan -var-file="{env}/terraform.tfvars"` for infrastructure changes
+- **Apply**: Run `terraform apply -var-file="{env}/terraform.tfvars"` for infrastructure deployment
+- **Workspaces**: Use terraform workspaces for environment isolation
 
-### Applications Workflow (`applications.yaml`)  
-- **PRs to `apps/*`**: Run `terraform plan` for application changes
-- **Push to `apps/*`**: Run `terraform apply` for application deployment
-- **Manual triggers**: Available for all environments with plan/apply options
+### Application Deployment  
+- **Plan**: Run `terraform plan` with environment-specific variables
+- **Apply**: Run `terraform apply` with environment-specific variables
 - **Dependencies**: Requires EKS cluster to be deployed first
+- **Helm**: Applications deployed via Terraform helm provider
 
 ### State File Organization
 - **Infrastructure**: `global/terraform.tfstate` (with workspaces)
 - **Applications**: `k8s/{environment}/terraform.tfstate` (separate states per environment)
 
-## Local usage
+## Local Usage
 
-- Bootstrap the backend (`infra/bootstrap`) if not already created; it will generate `infra/backend.generated.hcl` which is gitignored.
-- Initialize root: `terraform init -backend-config=../backend.generated.hcl` or rely on workflow variables.
-- Use workspaces or per-env tfvars in `infra/envs/<env>/terraform.tfvars`.
+### Infrastructure Deployment
+```bash
+cd infra/envs
+terraform init -backend-config="bucket=YOUR_BUCKET" -backend-config="region=YOUR_REGION" -backend-config="dynamodb_table=YOUR_TABLE"
+terraform workspace new dev || terraform workspace select dev
+terraform plan -var-file="dev/terraform.tfvars"
+terraform apply -var-file="dev/terraform.tfvars"
+```
+
+### Application Deployment
+```bash
+cd modules/applications
+terraform init -backend-config="bucket=YOUR_BUCKET" -backend-config="region=YOUR_REGION" -backend-config="dynamodb_table=YOUR_TABLE"
+terraform workspace new dev || terraform workspace select dev
+terraform apply -var="cluster_name=one-click-dev-eks" -var="region=us-east-1"
+```
 
 ## Notes
 
-- Do not commit real backend config. Use the example file or workflow variables.
-- Prefer least-privilege policies for the OIDC role (S3/DynamoDB access to state, KMS usage, and what your infra needs).
+- Store backend configuration securely and do not commit to version control
+- Use workspace isolation to manage multiple environments
+- Ensure proper IAM permissions for all AWS resources being created
