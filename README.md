@@ -272,7 +272,6 @@ Each environment uses separate:
 
 ## Cost Optimization
 
-- **Single NAT Gateway**: ~50% reduction vs multi-AZ NAT setup
 - **Fargate**: Pay-per-pod pricing, no idle EC2 instances
 - **Resource Limits**: Prevent container resource waste
 - **Configurable Features**: Enable only what you need (flow logs, NACLs, etc.)
