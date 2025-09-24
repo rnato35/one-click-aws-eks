@@ -1,0 +1,134 @@
+# Default values for chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Application configuration
+message: "By Rnato35"
+pageTitle: "EKS Fargate Sample by Rnato35"
+environment: "development"
+clusterName: "one-click-eks"
+
+# Deployment configuration
+replicaCount: 1
+revisionHistoryLimit: 3
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  tag: "1.27.3-alpine"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Service Account configuration
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  labels: {}
+  name: ""
+
+# Pod configuration
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 101
+  runAsNonRoot: true
+  runAsUser: 101
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 101
+  runAsGroup: 101
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "alb"
+  annotations: {}
+  hosts:
+    - host: ""  # Will be overridden by Terraform
+      paths:
+        - path: /architecture
+          pathType: Prefix
+  tls:
+    - secretName: renatomendoza-io-tls
+      hosts:
+        - ""  # Will be overridden by Terraform
+  aws:
+    scheme: internet-facing
+    targetType: ip
+    certificateArn: ""  # Will be overridden by Terraform
+    securityGroups: []
+    subnets: []
+    accessLogs:
+      enabled: false
+      bucket: ""
+      prefix: ""  # Will default to chart name if empty
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+  behavior: {}
+
+# Health check configuration
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  successThreshold: 1
+  failureThreshold: 3
+
+# Nginx specific configuration
+nginx:
+  host: "localhost"
+  statusPage:
+    enabled: false
+    allowFrom: []
+
+# Node selection and scheduling
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
